@@ -25,14 +25,14 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
- * 单屏：状态 / 开关 / 念给相机的地址 / 配置 / 网卡列表 / 最近事件。
+ * 单屏：状态 / 开关 / 相机里要填的地址 / 配置 / 最近事件。
  * 不做多页面、不做 Compose（文档 §5.2）。
  */
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private var running = false
-    private var bestIp: String? = null
+    private var bestIface: NetworkInfo.Iface? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -51,13 +51,13 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             FtpState.snapshot.collect { render(it) }
         }
-        refreshInterfaces()
+        refreshBestAddress()
     }
 
     // 开热点是 App 外面的事，回到前台时重新枚举网卡
     override fun onResume() {
         super.onResume()
-        refreshInterfaces()
+        refreshBestAddress()
     }
 
     private fun render(state: FtpState.Snapshot) {
@@ -80,32 +80,25 @@ class MainActivity : AppCompatActivity() {
         updateCameraHint()
     }
 
-    private fun refreshInterfaces() {
-        val list = NetworkInfo.ipv4()
-        bestIp = list.firstOrNull()?.ip
-        binding.ipList.text = if (list.isEmpty()) {
-            getString(R.string.ip_none)
-        } else {
-            list.joinToString("\n") { iface ->
-                iface.name + " → " + iface.ip + if (iface.isHotspot) getString(R.string.ip_hotspot) else ""
-            }
-        }
+    private fun refreshBestAddress() {
+        bestIface = NetworkInfo.preferred()
         updateCameraHint()
     }
 
     private fun updateCameraHint() {
-        val ip = bestIp
-        binding.cameraHint.text = if (ip == null) {
-            getString(R.string.camera_hint_no_ip)
-        } else {
-            getString(
-                R.string.camera_hint,
-                ip,
-                binding.portInput.text.toString().ifBlank { Config.port.toString() },
-                binding.userInput.text.toString().ifBlank { Config.user },
-                binding.passwordInput.text.toString().ifBlank { Config.password },
-            )
+        val iface = bestIface
+        if (iface == null) {
+            binding.cameraHint.text = getString(R.string.camera_hint_no_ip)
+            return
         }
+        val addr = if (iface.isHotspot) getString(R.string.ip_hotspot_suffix, iface.ip) else iface.ip
+        binding.cameraHint.text = getString(
+            R.string.camera_hint,
+            addr,
+            binding.portInput.text.toString().ifBlank { Config.port.toString() },
+            binding.userInput.text.toString().ifBlank { Config.user },
+            binding.passwordInput.text.toString().ifBlank { Config.password },
+        )
     }
 
     private fun toggleService() {
@@ -152,9 +145,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun openHotspotSettings() {
+        // 真机实测（ColorOS 17）四个候选的真实落点：
+        //   com.android.settings.TETHER_SETTINGS      无 App 注册 → 启动失败
+        //   android.settings.TETHER_SETTINGS          “网络共享”页（还得再点一下）
+        //   com.android.settings.WIFI_TETHER_SETTINGS “个人热点”页 ✔
+        //   Panel.ACTION_INTERNET_CONNECTIVITY        SystemUI 未注册（只有音量面板）
+        //   ACTION_WIRELESS_SETTINGS                  网络/WiFi 首页（旧代码就落在这里）
         val intents = listOf(
-            Intent("com.android.settings.TETHER_SETTINGS"),
-            Intent(Settings.Panel.ACTION_INTERNET_CONNECTIVITY),
+            Intent("com.android.settings.WIFI_TETHER_SETTINGS"),
+            Intent("android.settings.TETHER_SETTINGS"),
             Intent(Settings.ACTION_WIRELESS_SETTINGS),
         )
         for (intent in intents) {

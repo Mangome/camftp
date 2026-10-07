@@ -31,12 +31,18 @@
             android:text="@string/start" />
 
         <Button
+            android:id="@+id/hotspotButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/open_hotspot" />
+
+        <Button
             android:id="@+id/selfTestButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/self_test" />
 
-        <!-- 2. 念给相机听的那串字 -->
+        <!-- 2. 相机里要填的那串字（地址行带不带「热点」标记由 NetworkInfo 决定） -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -50,7 +56,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:fontFamily="monospace"
-            android:text="@string/ip_none"
+            android:text="@string/camera_hint_no_ip"
             android:textSize="18sp" />
 
         <Button
@@ -113,29 +119,7 @@
             android:layout_height="wrap_content"
             android:text="@string/save" />
 
-        <!-- 4. 网卡列表 + 热点 -->
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:text="@string/section_ip_title"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/ipList"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:fontFamily="monospace"
-            android:text="@string/ip_none" />
-
-        <Button
-            android:id="@+id/hotspotButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/open_hotspot" />
-
-        <!-- 5. 最近事件 -->
+        <!-- 4. 最近事件 -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

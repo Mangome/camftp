@@ -27,9 +27,7 @@
     <string name="saved_restart">已保存，服务正按新配置重启</string>
     <string name="field_required">不能为空</string>
 
-    <string name="section_ip_title">本机地址（带「热点」的那个念给相机）</string>
-    <string name="ip_none">没有可用的 IPv4 地址</string>
-    <string name="ip_hotspot">"  ← 热点"</string>
+    <string name="ip_hotspot_suffix">%1$s（热点）</string>
     <string name="open_hotspot">打开热点设置</string>
     <string name="hotspot_failed">打不开热点设置，请手动进：设置 → 便携式热点</string>
 

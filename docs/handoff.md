@@ -66,7 +66,7 @@ app/src/main/java/io/github/mangome/camftp/
 ├── SinkFtplet.kt          上传回调：CWD/STOR 自动建目录，把文件丢给 executor
 ├── FtpService.kt          前台服务 connectedDevice、静音常驻通知、wakelock、START_STICKY
 ├── FtpState.kt            StateFlow 单例状态通道（服务→UI）
-├── NetworkInfo.kt         枚举 IPv4、过滤虚拟网卡、热点网卡置顶高亮
+├── NetworkInfo.kt         枚举 IPv4、过滤虚拟网卡、优先选热点网卡（猜错了 App 就把热点标记漏掉，见 §5）
 └── MainActivity.kt        单屏 UI
 app/src/test/java/.../FtpEngineTest.kt   7 个 JVM 用例（FTP 引擎全流程）
 ```
@@ -124,6 +124,7 @@ app/src/test/java/.../FtpEngineTest.kt   7 个 JVM 用例（FTP 引擎全流程�
 | FtpServer 的 `onUploadEnd` 回调**可能晚于 226 响应** | 单测里 `storeFile()` 返回 ≠ 已派发入库，"排空队列"不够，要轮询等结果（`awaitResults()`） |
 | README 说 ColorOS 热点网段是 `192.168.43.1` | 实际是 **`ap0` / `10.129.14.x`**；同时还有 `wlan0`(家里 Wi-Fi)、`vgate0`、`ccmni*`(数据)、tun/gre/ifb/dummy 一堆虚拟网卡 —— 枚举 IPv4 必须黑名单过滤 + 热点名置顶 |
 | `getString(R.string.x, "2121")` 配 `%d` 占位符 | **一启动就闪退** `IllegalFormatConversionException: d != java.lang.String`。资源占位符类型必须和实参一致 |
+| 跳「热点设置」的 action 名**记错一个前缀就静默跑偏** | 实测这台 ColorOS 17：`com.android.settings.TETHER_SETTINGS` **无 App 注册**（启动必失败）；`android.settings.TETHER_SETTINGS` / `android.settings.OPLUS_TETHER_SETTINGS` 落到「网络共享」页；只有 `com.android.settings.WIFI_TETHER_SETTINGS` 直接是「个人热点」页；`Settings.Panel.ACTION_INTERNET_CONNECTIVITY` 这台机上 SystemUI 没注册（只提供音量面板）。旧代码三个候选全落空 → 用户点按钮看到的是 WiFi / 网络页。**验证方法**：`adb shell dumpsys package <pkg> \| grep -i tether` 看谁真的注册了 action，再用 `am start -a <action>` + `uiautomator dump` 看落点页面标题 |
 | `adb shell pm grant` 被拒（Android 17 + ColorOS） | 用 `adb install -g` |
 | `targetSdk 36` 起系统**强制 edge-to-edge**（`windowOptOutEdgeToEdgeEnforcement` 在 Android 16+ 失效），内容画到状态栏底下被时钟压住；且 Material 1.12 的 M3 主题不设 `android:windowLightStatusBar`，浅色主题下白图标落在浅色背景上基本看不见 | ① `activity_main.xml` 的 ScrollView 加 `android:fitsSystemWindows="true"`，20dp 内边距**必须挪到内层 LinearLayout**（`computeSystemWindowInsets` 只在「该边 padding==0」时才补 inset，padding 留在 root 上会静默失效）；② 新增 `res/values/themes.xml` 的 `Theme.CamFtp`，`windowLightStatusBar` / `windowLightNavigationBar` = `?attr/isLightTheme`，Manifest 改用它 |
 
@@ -139,18 +140,18 @@ app/src/test/java/.../FtpEngineTest.kt   7 个 JVM 用例（FTP 引擎全流程�
 
 - 电脑侧：被动 / 主动模式上传 → `226`，落 `/sdcard/DCIM/CamFtp/`，文件权限 `media_rw`（真进 MediaStore）；`.NEF` → `DCIM`（mime `image/x-nikon-nef`）、未知后缀 `.txt` → `Download`；子目录上传（路径带目录与 `CWD` 两种）自动建目录；私有目录 `filesDir/ftp` 无残留
 - 服务：通知 `importance=LOW` / 静音 / ongoing / 点击回 App；前台服务类型 `0x10`（connectedDevice）；改端口 2121→2122 自动热重启（新端口通、旧端口拒连）
-- UI：热点识别 `ap0 → 10.129.14.x ← 热点`（虚拟网卡被过滤）、配置校验、自检图入库、事件列表
+- UI：热点识别（地址行显示 `10.129.14.x（热点）`，虚拟网卡被过滤）、配置校验、自检图入库、事件列表
+- 「打开热点设置」按钮 → ColorOS「个人热点」页（`com.android.settings.WIFI_TETHER_SETTINGS`；即使用该设置应用已停在「网络共享」页，再点也能切过去）
 - **相机真人验收**：Z50II 经手机热点连 `10.129.14.x:2121`，回放上传成功，相册看到原文件名；连续多张 + 息屏不断线
 
 ### 未验证 / 已知风险（接手时先知道）
 
-1. 「打开热点设置」按钮没实测（三层 fallback：`TETHER_SETTINGS` → `Settings.Panel.ACTION_INTERNET_CONNECTIVITY` → `ACTION_WIRELESS_SETTINGS`）
-2. 相机侧传 **RAW / NEF** 没试过（只测过电脑伪造的 NEF）
-3. 相机**重传同名文件** → `DSC_0001 (1).JPG` 改名，未实测
-4. `START_STICKY` 被杀后自恢复没实测
-5. **只在 ColorOS / Android 17 一台机上验过**，其它 ROM / Android 10–16 未验
-6. 配置的失败路径（如被动端口填成被占用范围）没测
-7. 批量几百张 / 超大文件没测（8MB 连拍过了）
+1. 相机侧传 **RAW / NEF** 没试过（只测过电脑伪造的 NEF）
+2. 相机**重传同名文件** → `DSC_0001 (1).JPG` 改名，未实测
+3. `START_STICKY` 被杀后自恢复没实测
+4. **只在 ColorOS / Android 17 一台机上验过**，其它 ROM / Android 10–16 未验（「打开热点设置」的 action 落点尤其可能不同，换 ROM 复验时走上面 §5 的「验证方法」）
+5. 配置的失败路径（如被动端口填成被占用范围）没测
+6. 批量几百张 / 超大文件没测（8MB 连拍过了）
 
 ---
 
