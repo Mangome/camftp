@@ -45,6 +45,11 @@ class MainActivity : AppCompatActivity() {
         binding.toggleButton.setOnClickListener { toggleService() }
         binding.copyButton.setOnClickListener { copyCameraHint() }
         binding.saveButton.setOnClickListener { saveConfig() }
+        binding.anonymousCheck.setOnCheckedChangeListener { _, checked ->
+            binding.userInput.isEnabled = !checked   // 匿名登录时用户名密码用不上
+            binding.passwordInput.isEnabled = !checked
+            updateCameraHint()
+        }
         binding.hotspotButton.setOnClickListener { openHotspotSettings() }
         binding.selfTestButton.setOnClickListener { runSelfTest() }
 
@@ -92,13 +97,18 @@ class MainActivity : AppCompatActivity() {
             return
         }
         val addr = if (iface.isHotspot) getString(R.string.ip_hotspot_suffix, iface.ip) else iface.ip
-        binding.cameraHint.text = getString(
-            R.string.camera_hint,
-            addr,
-            binding.portInput.text.toString().ifBlank { Config.port.toString() },
-            binding.userInput.text.toString().ifBlank { Config.user },
-            binding.passwordInput.text.toString().ifBlank { Config.password },
-        )
+        val port = binding.portInput.text.toString().ifBlank { Config.port.toString() }
+        binding.cameraHint.text = if (binding.anonymousCheck.isChecked) {
+            getString(R.string.camera_hint_anonymous, addr, port)
+        } else {
+            getString(
+                R.string.camera_hint,
+                addr,
+                port,
+                binding.userInput.text.toString().ifBlank { Config.user },
+                binding.passwordInput.text.toString().ifBlank { Config.password },
+            )
+        }
     }
 
     private fun toggleService() {
@@ -122,16 +132,19 @@ class MainActivity : AppCompatActivity() {
         val user = binding.userInput.text.toString().trim()
         val password = binding.passwordInput.text.toString().trim()
         val folder = binding.folderInput.text.toString().trim()
+        val anonymous = binding.anonymousCheck.isChecked
 
         var bad: EditText? = null
         Config.portError(portText)?.let { binding.portInput.error = it; bad = binding.portInput }
         Config.passivePortsError(passiveText)?.let { binding.passivePortsInput.error = it; bad = bad ?: binding.passivePortsInput }
-        if (user.isEmpty()) { binding.userInput.error = getString(R.string.field_required); bad = bad ?: binding.userInput }
-        if (password.isEmpty()) { binding.passwordInput.error = getString(R.string.field_required); bad = bad ?: binding.passwordInput }
+        if (!anonymous) {
+            if (user.isEmpty()) { binding.userInput.error = getString(R.string.field_required); bad = bad ?: binding.userInput }
+            if (password.isEmpty()) { binding.passwordInput.error = getString(R.string.field_required); bad = bad ?: binding.passwordInput }
+        }
         if (folder.isEmpty()) { binding.folderInput.error = getString(R.string.field_required); bad = bad ?: binding.folderInput }
         if (bad != null) return
 
-        Config.save(this, portText.toInt(), passiveText, user, password, folder)
+        Config.save(this, portText.toInt(), passiveText, user, password, folder, anonymous)
         Config.load(this)
 
         if (running) {
@@ -214,6 +227,7 @@ class MainActivity : AppCompatActivity() {
         binding.userInput.setText(Config.user)
         binding.passwordInput.setText(Config.password)
         binding.folderInput.setText(Config.folder)
+        binding.anonymousCheck.isChecked = Config.anonymous
     }
 
     private fun toast(text: String) = Toast.makeText(this, text, Toast.LENGTH_SHORT).show()

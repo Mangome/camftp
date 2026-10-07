@@ -171,4 +171,49 @@ class FtpEngineTest {
         engine.awaitIdle()
         assertEquals(0, sink.results.size)
     }
+
+    @Test
+    fun `匿名登录默认被拒（开关关着时 anonymous 不能当普通账号）`() {
+        val client = connect()
+        try {
+            assertFalse("匿名登录默认是关的，不该放行", client.login("anonymous", "x@y.com"))
+        } finally {
+            client.disconnect()
+        }
+    }
+
+    @Test
+    fun `开了匿名就能不输入用户名密码上传`() {
+        val anonHome = Files.createTempDirectory("camftp-anon").toFile()
+        val anonSink = RecordingSink()
+        val anonPort = ServerSocket(0).use { it.localPort }
+        val anonEngine = FtpEngine(
+            profile = Profiles.NIKON_Z50II.copy(controlPort = anonPort),
+            homeDir = anonHome,
+            user = "camftp",
+            password = "123456",
+            sink = anonSink,
+            anonymous = true,
+        )
+        anonEngine.start()
+        try {
+            val data = payload()
+            val client = FTPClient().apply { connect("127.0.0.1", anonPort) }
+            try {
+                // 相机/curl 的匿名登录：用户名 anonymous，密码随便填（常在填邮箱）
+                assertTrue("匿名登录失败：${client.replyString}", client.login("anonymous", "camftp@example.com"))
+                client.setFileType(FTP.BINARY_FILE_TYPE)
+                client.enterLocalPassiveMode()
+                assertTrue("匿名 STOR 失败：${client.replyString}", client.storeFile("DSC_0100.JPG", ByteArrayInputStream(data)))
+            } finally {
+                client.disconnect()
+            }
+            val deadline = System.currentTimeMillis() + 5_000
+            while (anonSink.results.isEmpty() && System.currentTimeMillis() < deadline) Thread.sleep(20)
+            assertArrayEquals(data, anonSink.bytes[0])
+        } finally {
+            anonEngine.stop()
+            anonHome.deleteRecursively()
+        }
+    }
 }

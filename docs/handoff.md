@@ -57,18 +57,18 @@ Set-Location <仓库根>
 
 ```
 app/src/main/java/io/github/mangome/camftp/
-├── Config.kt              配置唯一出处（端口/被动端口/账号/目录名）+ 校验；默认 camftp / 123456
+├── Config.kt              配置唯一出处（端口/被动端口/账号/目录名/匿名开关）+ 校验；默认 camftp / 123456
 ├── CameraProfile.kt       机型差异=数据（NIKON_Z50II / GENERIC_NIKON）
 ├── Sink.kt                interface Sink + StoreResult
 ├── MediaStoreSink.kt      入库：图片视频→DCIM/<dir>，其它→Download/<dir>；失败保留源文件
 ├── FtpEngine.kt           纯 JVM：FtpServer 配置/生命周期 + 单线程入库 executor + retryPending()
-├── SimpleUserManager.kt   单用户明文认证（坑最密集的地方，见 §5）
+├── SimpleUserManager.kt   单用户明文认证 + 可选的匿名账号（坑最密集的地方，见 §5）
 ├── SinkFtplet.kt          上传回调：CWD/STOR 自动建目录，把文件丢给 executor
 ├── FtpService.kt          前台服务 connectedDevice、静音常驻通知、wakelock、START_STICKY
 ├── FtpState.kt            StateFlow 单例状态通道（服务→UI）
 ├── NetworkInfo.kt         枚举 IPv4、过滤虚拟网卡、优先选热点网卡（猜错了 App 就把热点标记漏掉，见 §5）
 └── MainActivity.kt        单屏 UI
-app/src/test/java/.../FtpEngineTest.kt   7 个 JVM 用例（FTP 引擎全流程）
+app/src/test/java/.../FtpEngineTest.kt   9 个 JVM 用例（FTP 引擎全流程，含匿名登录开关两种状态）
 ```
 
 `compileSdk`/`targetSdk` 36、`minSdk` 29、ViewBinding、AGP 8.13.2 / Kotlin 2.2.21（见 `gradle/libs.versions.toml`）。
@@ -90,6 +90,7 @@ app/src/test/java/.../FtpEngineTest.kt   7 个 JVM 用例（FTP 引擎全流程�
 11. **不设 `passiveAddress`**：Apache FtpServer 回落到控制连接的本地地址（= 当前热点 IP），正好是相机要的。
 12. 通知：`IMPORTANCE_LOW`、`setOnlyAlertOnce(true)`、ongoing、全静音 —— 拍摄现场手机不该响。
 13. 监听 `0.0.0.0`（热点 / 家里 Wi-Fi / USB 网都通）；**IP 一律运行时枚举，不要写死**（网段随 ROM 变，ColorOS 每次开热点都可能是新网段 —— 这正是 UI 第一屏「念给相机听」那块大字存在的意义）。
+14. **匿名登录 = 两个开关一起开**：`ConnectionConfigFactory.setAnonymousLoginEnabled(true)` + `SimpleUserManager` 处理 `AnonymousAuthentication`。两个坑：① 相机（及 curl / 资源管理器）发的用户名是字面量 `anonymous`，`USER` 命令里是**大小写敏感**的 `equals`，别自作主张做归一化；② 返回的 `User` 名字必须叫 `anonymous`，否则 `DefaultFtpStatistics` 不把它算作匿名会话。匿名与具名**共存**（不互斥）—— 少一个分支，「关了就只认具名」由开关本身搞定。`maxAnonymousLogins` 别传 0：源码里 `currAnonLogin >= maxAnonymousLogins` 永远成立，会把匿名登录全拒掉（“0 = 不限”只活在日志文案里）。
 
 比 v1 设计多做的：自检按钮、CWD 自动建目录、残留文件重试。
 
@@ -116,6 +117,7 @@ app/src/test/java/.../FtpEngineTest.kt   7 个 JVM 用例（FTP 引擎全流程�
 | `setPassiveEnabled(true)` **在 FtpServer 1.2.1 里不存在** | 编译不过。被动模式没有开关（只有 active 有），删掉 |
 | `setFtplets(mapOf(...))`：Kotlin `mapOf` 不可变，而 `DefaultFtpServerContext.dispose()` 会 `clear()` 它 | `stop()` 抛 `UnsupportedOperationException`。用 `mutableMapOf<String, Ftplet>` |
 | `BaseUser().apply { setName(name) }` 里 `name` 解析成**接收者自己的属性**（此时 null） | 用户名/密码被写成 null，登录必失败。构造参数改名 `userName/userPassword` |
+| 同一种遮蔽，但换了个名字：`private val authorities = listOf(...)` 再 `apply { setAuthorities(authorities) }` | **所有账号都登不上**：USER 阶段直接 `421 Maximum login limit has been reached.`（看着像并发登录数超了，实际是 `configUser.authorize(ConcurrentLoginRequest)` 返回 null 那条分支）。因为 `authorities` 解析成了 BaseUser 自己的 `getAuthorities()`（此时是空列表），用户一个权限都没有。改叫 `permissions`。**教训**：自定义属性名不能和 `apply` 接收者上任何 getter 同名 —— 断点看不出来，只能通过回复码定位 |
 | 只给 `WritePermission`：`USER` 命令还会 `authorize(ConcurrentLoginRequest)` | 直接 `421 Maximum login limit has been reached.`。必须加 `ConcurrentLoginPermission(MAX, MAX)` |
 | `WritePermission(homeDir.absolutePath)` 传的是**物理路径** | 每个 `STOR` 都 `550 Permission denied`。它按**相对家目录的虚拟路径**前缀匹配，应传 `"/"` |
 | `org.apache.commons:commons-net:3.11.1` 坐标不存在 | 正确坐标 `commons-net:commons-net`（单测客户端） |
@@ -139,6 +141,7 @@ app/src/test/java/.../FtpEngineTest.kt   7 个 JVM 用例（FTP 引擎全流程�
 ### 已验证（真机 一台 OPPO ColorOS 机 + Nikon Z50II）
 
 - 电脑侧：被动 / 主动模式上传 → `226`，落 `/sdcard/DCIM/CamFtp/`，文件权限 `media_rw`（真进 MediaStore）；`.NEF` → `DCIM`（mime `image/x-nikon-nef`）、未知后缀 `.txt` → `Download`；子目录上传（路径带目录与 `CWD` 两种）自动建目录；私有目录 `filesDir/ftp` 无残留
+- 匿名登录：App 勾上 + 保存（服务热重启）后，匿名 PASV / 主动模式上传都 `226` 入库；取消勾选后匿名登录回 `530`、具名账号照常 `226`（真机 2026-10-07，另有 2 个 JVM 用例守这两条）
 - 服务：通知 `importance=LOW` / 静音 / ongoing / 点击回 App；前台服务类型 `0x10`（connectedDevice）；改端口 2121→2122 自动热重启（新端口通、旧端口拒连）
 - UI：热点识别（地址行显示 `10.129.14.x（热点）`，虚拟网卡被过滤）、配置校验、自检图入库、事件列表
 - 「打开热点设置」按钮 → ColorOS「个人热点」页（`com.android.settings.WIFI_TETHER_SETTINGS`；即使用该设置应用已停在「网络共享」页，再点也能切过去）
@@ -166,7 +169,7 @@ app/src/test/java/.../FtpEngineTest.kt   7 个 JVM 用例（FTP 引擎全流程�
 ## 8. 复现 / 回归命令
 
 ```powershell
-gradle test                     # 7 个 JVM 用例
+gradle test                     # 9 个 JVM 用例
 gradle :app:testDebugUnitTest --rerun    # 强制重跑（复现竞态用）
 gradle assembleDebug --console=plain
 adb install -r -g app\build\outputs\apk\debug\app-debug.apk
@@ -179,6 +182,7 @@ adb shell am start -n io.github.mangome.camftp/.MainActivity
 $ip = (adb shell ip -4 -o addr show wlan0) -replace '.*inet ([0-9.]+)/.*','$1'
 curl.exe -sS --user camftp:123456 -T .\x.jpg "ftp://${ip}:2121/"                      # 被动
 curl.exe -sS --user camftp:123456 --ftp-port - -T .\x.jpg "ftp://${ip}:2121/x.jpg"   # 主动
+curl.exe -sS -T .\x.jpg "ftp://${ip}:2121/anon.jpg"                                 # 匿名（App 里先勾上「允许匿名登录」）
 adb shell ls -l /sdcard/DCIM/CamFtp/
 ```
 

@@ -4,6 +4,7 @@ import org.apache.ftpserver.ftplet.Authentication
 import org.apache.ftpserver.ftplet.FtpException
 import org.apache.ftpserver.ftplet.User
 import org.apache.ftpserver.ftplet.UserManager
+import org.apache.ftpserver.usermanager.AnonymousAuthentication
 import org.apache.ftpserver.usermanager.UsernamePasswordAuthentication
 import org.apache.ftpserver.usermanager.impl.BaseUser
 import org.apache.ftpserver.usermanager.impl.ConcurrentLoginPermission
@@ -19,34 +20,54 @@ import org.apache.ftpserver.usermanager.impl.WritePermission
  * （`configUser.authorize(ConcurrentLoginRequest)`），返回 null 就直接回 421。必须给 ConcurrentLoginPermission。
  * 坑 3：WritePermission 的入参是**相对家目录的虚拟路径**，传物理路径会让每个 STOR 都 550 Permission denied。
  * 这里传 "/" 即整个家目录。
+ * 坑 5（同坑 1 的变体）：局部变量名不能叫 `authorities` —— BaseUser 有 getAuthorities/setAuthorities，
+ * `apply { setAuthorities(authorities) }` 里的 `authorities` 会解析成接收者自己的（此时为空列表），
+ * 结果用户一个权限都没有，USER 阶段直接 421。
+ * 坑 4：匿名登录（相机侧开「匿名登录」）走的是 [AnonymousAuthentication]，密码不被校验；
+ * 返回的用户名必须叫 "anonymous"，否则 DefaultFtpStatistics 不把它算作匿名会话。
  */
 class SimpleUserManager(
     private val userName: String,
     private val userPassword: String,
     homeDir: String,
+    private val anonymousEnabled: Boolean = false,
 ) : UserManager {
+
+    private val permissions = listOf(
+        WritePermission("/"),   // 虚拟路径；"/" = 家目录整棵树（传物理路径会全部 550）
+        ConcurrentLoginPermission(Int.MAX_VALUE, Int.MAX_VALUE),   // 相机断线重连是常态，不限制
+    )
 
     private val user = BaseUser().apply {
         setName(userName)
         setPassword(userPassword)
         setHomeDirectory(homeDir)
-        setAuthorities(
-            listOf(
-                WritePermission("/"),   // 虚拟路径；"/" = 家目录整棵树（传物理路径会全部 550）
-                ConcurrentLoginPermission(Int.MAX_VALUE, Int.MAX_VALUE),   // 相机断线重连是常态，不限制
-            )
-        )
+        setAuthorities(permissions)
     }
 
-    override fun getUserByName(name: String?): User? = user.takeIf { it.name == name }
+    private val anonymousUser = BaseUser().apply {
+        setName(UserManager.ANONYMOUS)
+        setHomeDirectory(homeDir)
+        setAuthorities(permissions)
+    }
 
-    override fun getAllUserNames(): Array<String> = arrayOf(userName)
+    override fun getUserByName(name: String?): User? = when (name) {
+        userName -> user
+        UserManager.ANONYMOUS -> anonymousUser.takeIf { anonymousEnabled }
+        else -> null
+    }
 
-    override fun doesExist(name: String?): Boolean = name == userName
+    override fun getAllUserNames(): Array<String> =
+        if (anonymousEnabled) arrayOf(userName, UserManager.ANONYMOUS) else arrayOf(userName)
 
-    override fun authenticate(authentication: Authentication?): User? {
-        val a = authentication as? UsernamePasswordAuthentication ?: return null
-        return user.takeIf { a.username == userName && a.password == userPassword }
+    override fun doesExist(name: String?): Boolean = getUserByName(name) != null
+
+    override fun authenticate(authentication: Authentication?): User? = when (authentication) {
+        is AnonymousAuthentication -> anonymousUser.takeIf { anonymousEnabled }
+        // 匿名开关关着时，"anonymous" 这个用户名也不当普通账号放行
+        is UsernamePasswordAuthentication ->
+            user.takeIf { it.name == authentication.username && authentication.password == userPassword }
+        else -> null
     }
 
     override fun getAdminName(): String = userName

@@ -15,6 +15,7 @@ object Config {
     private const val KEY_USER = "user"
     private const val KEY_PASSWORD = "password"
     private const val KEY_FOLDER = "folder"
+    private const val KEY_ANONYMOUS = "anonymous"
 
     const val DEFAULT_USER = "camftp"
     const val DEFAULT_PASSWORD = "123456"
@@ -30,6 +31,9 @@ object Config {
     var password: String = DEFAULT_PASSWORD
     var folder: String = DEFAULT_FOLDER
 
+    /** 允许匿名登录：相机侧开「匿名登录」时用，不校验用户名密码（默认关） */
+    var anonymous: Boolean = false
+
     fun load(context: Context) {
         val p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         port = p.getInt(KEY_PORT, Profiles.NIKON_Z50II.controlPort)
@@ -37,15 +41,25 @@ object Config {
         user = p.getString(KEY_USER, DEFAULT_USER) ?: DEFAULT_USER
         password = p.getString(KEY_PASSWORD, DEFAULT_PASSWORD) ?: DEFAULT_PASSWORD
         folder = p.getString(KEY_FOLDER, DEFAULT_FOLDER) ?: DEFAULT_FOLDER
+        anonymous = p.getBoolean(KEY_ANONYMOUS, false)
     }
 
-    fun save(context: Context, newPort: Int, newPassivePorts: String, newUser: String, newPassword: String, newFolder: String) {
+    fun save(
+        context: Context,
+        newPort: Int,
+        newPassivePorts: String,
+        newUser: String,
+        newPassword: String,
+        newFolder: String,
+        newAnonymous: Boolean,
+    ) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putInt(KEY_PORT, newPort)
             .putString(KEY_PASSIVE_PORTS, newPassivePorts)
             .putString(KEY_USER, newUser)
             .putString(KEY_PASSWORD, newPassword)
             .putString(KEY_FOLDER, newFolder)
+            .putBoolean(KEY_ANONYMOUS, newAnonymous)
             .apply()
         load(context)
     }

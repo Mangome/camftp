@@ -79,6 +79,7 @@ class FtpService : Service() {
             homeDir = File(filesDir, HOME_DIR),
             user = user,
             password = password,
+            anonymous = Config.anonymous,
             sink = MediaStoreSink(this, Config.folder),
             onResult = ::onResult,
         )

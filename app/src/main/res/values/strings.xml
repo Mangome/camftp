@@ -12,6 +12,7 @@
 
     <string name="section_camera_title">相机里填这些</string>
     <string name="camera_hint">地址 %1$s\n端口 %2$s\n用户 %3$s\n密码 %4$s</string>
+    <string name="camera_hint_anonymous">地址 %1$s\n端口 %2$s\n匿名登录：相机里开「匿名登录」\n用户名密码不用填</string>
     <string name="camera_hint_no_ip">还没找到本机地址 —— 先开热点</string>
     <string name="copy">复制</string>
     <string name="copied">已复制到剪贴板</string>
@@ -20,6 +21,7 @@
     <string name="label_port">控制端口</string>
     <string name="label_passive">被动端口范围（如 32768-61000）</string>
     <string name="label_user">用户名</string>
+    <string name="label_anonymous">允许匿名登录（相机侧开「匿名登录」）</string>
     <string name="label_password">密码</string>
     <string name="label_folder">相册目录名</string>
     <string name="save">保存</string>

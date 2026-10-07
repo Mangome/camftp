@@ -25,6 +25,8 @@ class FtpEngine(
     private val user: String,
     private val password: String,
     private val sink: Sink,
+    /** 允许匿名登录（相机侧开「匿名登录」）：用户名密码不校验 */
+    private val anonymous: Boolean = false,
     private val onResult: (StoreResult) -> Unit = {},
 ) {
     private val log = LoggerFactory.getLogger("FtpEngine")
@@ -57,12 +59,12 @@ class FtpEngine(
 
         val factory = FtpServerFactory().apply {
             addListener("default", listenerFactory.createListener())
-            setUserManager(SimpleUserManager(user, password, homeDir.absolutePath))
+            setUserManager(SimpleUserManager(user, password, homeDir.absolutePath, anonymous))
             setFileSystem(NativeFileSystemFactory().apply { setCreateHome(true) })
             setConnectionConfig(
                 ConnectionConfigFactory().apply {
                     setMaxLogins(4)          // 相机断线重连是常态，别设 1
-                    setAnonymousLoginEnabled(false)
+                    setAnonymousLoginEnabled(anonymous)
                     setMaxThreads(8)
                 }.createConnectionConfig()
             )
