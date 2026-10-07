@@ -1,0 +1,8 @@
+# 统一换行符：跨平台协作 + 保证 gradlew（unix 脚本）不被改成 CRLF
+* text=auto
+*.bat text eol=crlf
+gradlew text eol=lf
+*.jar binary
+*.png binary
+*.jpg binary
+*.apk binary
