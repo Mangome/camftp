@@ -26,6 +26,11 @@ class NetworkInfoTest {
     }
 
     @Test
+    fun `ColorOS 把自己热点也报进 Wi-Fi 网络里，ap0 照样认（这里误杀过）`() {
+        assertTrue(NetworkInfo.isHotspot(name = "ap0", staWifi = setOf("wlan0", "ap0")))
+    }
+
+    @Test
     fun `各家 ROM 的热点名都认`() {
         listOf("ap0", "ap1", "softap0", "swlan0", "wlan-ap0", "wlan1").forEach {
             assertTrue(it, NetworkInfo.isHotspot(name = it, staWifi = emptySet()))

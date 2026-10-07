@@ -69,7 +69,7 @@ app/src/main/java/io/github/mangome/camftp/
 ├── HotspotWatch.kt        热点=开关：广播 + 回前台对齐 → 起/停 FtpService；HotspotReceiver 是清单里那份
 ├── FtpService.kt          前台服务 connectedDevice、静音常驻通知、wakelock、START_STICKY
 ├── FtpState.kt            StateFlow 单例状态通道（服务→UI；另存相机会话数 / 上次连接时间）
-├── NetworkInfo.kt         枚举 IPv4、过滤虚拟网卡、识别热点网卡（名字形状 + 排除 STA，见 §3.20 / §5）
+├── NetworkInfo.kt         枚举 IPv4、过滤虚拟网卡、识别热点网卡（AP 专有名直接定案、wlanN 排除 STA，见 §3.20 / §5）
 └── MainActivity.kt        单屏 UI
 app/src/main/res/
 ├── values/colors.xml + values-night/colors.xml   全部颜色（cam_* 命名，深浅两套）
@@ -78,7 +78,7 @@ app/src/main/res/
 app/src/test/java/.../FtpEngineTest.kt   10 个 JVM 用例（FTP 引擎全流程，含匿名登录开关两种状态、会话数回调）
 app/src/test/java/.../FtpStateTest.kt     2 个：自检/真图计数的口径、会话数增量（不变负数、不断清「上次连接」）
 app/src/test/java/.../HotspotWatchTest.kt 1 个：起/停/不动的规则（「热点=开关」的唯一规则来源）
-app/src/test/java/.../NetworkInfoTest.kt 4 个：热点网卡识别（小米 wlan2 算热点、正在连 Wi-Fi 的 wlan0 不算）
+app/src/test/java/.../NetworkInfoTest.kt 5 个：热点网卡识别（小米 wlan2 算热点、正在连 Wi-Fi 的 wlan0 不算、ColorOS 把 ap0 报进 Wi-Fi 网络里照样认）
 ```
 
 `compileSdk`/`targetSdk` 36、`minSdk` 29、ViewBinding、AGP 8.13.2 / Kotlin 2.2.21（见 `gradle/libs.versions.toml`）。
@@ -112,7 +112,7 @@ app/src/test/java/.../NetworkInfoTest.kt 4 个：热点网卡识别（小米 wla
 
 19. **按钮不放卡里，也不跟卡一起隐显**：「打开热点设置」常驻在卡下面。卡是「现在缺什么」的提醒，按钮是「该怎么办」的动作，拆成两行各司其职；按钮跟着卡一起出现/消失的话，热点开着时就没地方改热点设置了（关掉、换密码都要回到这个页）。同理**不放开始/停止按钮** —— 那是热点的事（§3.20）。
 
-20. **「什么时候开始接收」只有一条规则：热点开着就该在收**（`HotspotWatch`）。触发点两个：① 系统广播 `WIFI_AP_STATE_CHANGED` / `TETHER_STATE_CHANGED`（清单里声明了 `HotspotReceiver` 一份、`attach()` 在 application context 上挂运行时接收器一份 —— **实测干活的是后者**：清单那份每次都被 `skipped by policy at enqueue: Background execution not allowed` 拦掉（§5）。**小米 HyperOS 更狠：App 退到后台（`am get-standby-bucket` = 40 RARE）后运行时那份也一起拦**，所以「服务在跑时关热点自动停」照常、「服务已停 + App 在后台时开热点自动起」在小米上不会发生，兜底是打开 App（见 §5 / §6）；② 回到前台（`MainActivity.onResume → sync()`）、服务自己被拉回来时（`FtpService.start()` 的兵底检查）。判定一律**重新扫网卡**（`NetworkInfo.ipv4(context)`：名字像 AP 且不是当前 STA），广播里带的数据只当闹钟；**唯一例外**是广播明说 `DISABLING/DISABLED/FAILED` → 直接停（那时热点网卡还挂着几百毫秒，等扫描会把这次「停」漏掉，通知栏就挂着一条假的「正在接收」）。`serviceAction()` 是唯一规则来源，`HotspotWatchTest` 守着（能收没起→起、不能收在跑→停、其余不动）。**别再加手动开关**：有按钮就得回答「用户按了停止之后广播来了要不要再起」，而这个语义没有好答案 —— 用户的习惯已经统一成「关热点就是停」。曾经用 `FLAG_DEBUGGABLE` 放行「家里 Wi-Fi 直连 2121」跑 curl 回归，结果没热点时状态栏也报「正在接收」，跟警示卡自相矛盾 → 删了（见 §5）。要加开发口子先自问：它会不会出现在用户界面里。
+20. **「什么时候开始接收」只有一条规则：热点开着就该在收**（`HotspotWatch`）。触发点两个：① 系统广播 `WIFI_AP_STATE_CHANGED` / `TETHER_STATE_CHANGED`（清单里声明了 `HotspotReceiver` 一份、`attach()` 在 application context 上挂运行时接收器一份 —— **实测干活的是后者**：清单那份每次都被 `skipped by policy at enqueue: Background execution not allowed` 拦掉（§5）。**小米 HyperOS 更狠：App 退到后台（`am get-standby-bucket` = 40 RARE）后运行时那份也一起拦**，所以「服务在跑时关热点自动停」照常、「服务已停 + App 在后台时开热点自动起」在小米上不会发生，兜底是打开 App（见 §5 / §6）；② 回到前台（`MainActivity.onResume → sync()`）、服务自己被拉回来时（`FtpService.start()` 的兵底检查）。判定一律**重新扫网卡**（`NetworkInfo.ipv4(context)`：`ap0` 这类 AP 专有名直接定案，只有 `wlanN` 才去比对「谁在连 Wi-Fi」），广播里带的数据只当闹钟；**唯一例外**是广播明说 `DISABLING/DISABLED/FAILED` → 直接停（那时热点网卡还挂着几百毫秒，等扫描会把这次「停」漏掉，通知栏就挂着一条假的「正在接收」）。`serviceAction()` 是唯一规则来源，`HotspotWatchTest` 守着（能收没起→起、不能收在跑→停、其余不动）。**别再加手动开关**：有按钮就得回答「用户按了停止之后广播来了要不要再起」，而这个语义没有好答案 —— 用户的习惯已经统一成「关热点就是停」。曾经用 `FLAG_DEBUGGABLE` 放行「家里 Wi-Fi 直连 2121」跑 curl 回归，结果没热点时状态栏也报「正在接收」，跟警示卡自相矛盾 → 删了（见 §5）。要加开发口子先自问：它会不会出现在用户界面里。
 
 21. **不熄屏（前台常亮）用 layout 的 `android:keepScreenOn`，不写 `FLAG_KEEP_SCREEN_ON` 代码**：`activity_main.xml` 根 ScrollView 上一个属性，系统按「窗口可见」判定 —— 退到后台 / 息屏后自动失效，不用在 `onResume`/`onPause` 里配对加清标志（配对漏一边就是后台把用户屏幕焊死）。它跟服务是两件事：**息屏接收照旧**（前台服务管），常亮只管「App 打开着的时候别灭」。
 
@@ -157,10 +157,11 @@ app/src/test/java/.../NetworkInfoTest.kt 4 个：热点网卡识别（小米 wla
 | 清单里声明热点广播，**根本收不到** | 实测（ColorOS 17 / Android 17）：`WIFI_AP_STATE_CHANGED state=10/11`、`TETHER_STATE_CHANGED` 都会发，但 `dumpsys activity broadcasts` 里清单那份每次都是 `skipped by policy at enqueue: Background execution not allowed`，投递的只有 `HotspotWatch.attach()` 挂的运行时接收器。结论：别只写清单接收器；进程被杀后切热点不会自动起（兜底是打开 App）。换 ROM 复验就看这句 DELIVERED / skipped |
 | 怕 Android 12+ 不允许后台起前台服务 | ColorOS 17 实测**放行**：`ActivityManager: Background started FGS: Allowed [... uidState: LAST; code:UID_VISIBLE ...]`（App 刚在前台待过就允许）。`HotspotWatch.start()` 仍包着 try/catch：真被拦也只丢一行日志，回前台 `sync()` 会补回来 |
 | 热点网卡名写死成名单 | 小米 MIX Flip 2 / HyperOS 3 把热点放在 **`wlan2`**（`dumpsys tethering`：`TetherState: wlan2 - TetheredState`），名单里只有 `ap0/swlan0/wlan1/...` → App 判成「没热点」：读数卡收起、服务不起，用户看到的就是「开了热点却显示未开」。修法：名字形状照抄系统自己的 `tetherableWifiRegexs: [wlan\d, softap\d, ap_br_wlan\d, ap_br_softap\d]`，再用 `ConnectivityManager` 里 `TRANSPORT_WIFI` 的网卡（STA）把它排除掉 —— `wlan2` 既可能是热点也可能是 STA，只能靠「哪张卡在连 Wi-Fi」分。`NetworkInfoTest` 守着 |
+| 拿 STA 名单去否决**所有**名字（修小米时顺手引入的回归） | ColorOS 17 上开了热点却显示「需要开启热点」：`ap0` 被当成 STA 排掉了。实测（2026-10-07 20:03 logcat）：`NetworkInfo: 网卡 ap0=10.129.14.60(热点), wlan0=192.168.1.104 ｜ STA [wlan0, ap0]` —— ColorOS **确实**把热点那张卡也算进 Wi-Fi 类型的网络（`wifiSta()` 取的就是「所有 `TRANSPORT_WIFI` 网络的 interfaceName」）。修法：STA 名单只用来判 `wlanN` 这种「热点和 STA 都可能叫」的名字；`ap`/`softap`/`swlan`/`wlan-ap`/`ap_br_*` 直接定案（没有任何 ROM 拿这些名字去连 Wi-Fi）。`NetworkInfoTest` 守着；下次换 ROM 复验就看那行日志的「｜ STA …」 |
 | 小米上 `wlan2` 的 IP 会不会热点关了还留着（留了就误报） | 不会：3 秒粒度采样，`wlan2=10.130.223.120` 随关热点消失、开热点回来（2026-10-07 19:06）。所以「名字像 AP + 有 IPv4」两个条件就够，不用额外记状态 |
 | HyperOS 把热点广播拦到「已退后台的 App」 | `dumpsys activity broadcasts` 实测：`SKIPPED terminal-enq ... #3: BroadcastFilter{... ReceiverList{... io.github.mangome.camftp}}` —— **运行时那份也拦**（ColorOS 只拦清单那份），`am get-standby-bucket` = 40（RARE）。服务在跑（FGS）时广播照常送达：19:12:16 `WIFI_AP_STATE_CHANGED state=10 → TETHER_STATE_CHANGED → state=11` → 服务自动停。对策：代码不动，README 里写「小米上想让开热点自动起，给 App 开自启动 / 后台策略无限制」 |
 | HyperOS 上 34sp 等宽粗体的**行高被量成 0.75×** | 地址读数上下被切掉（用户截图报「IP 显示不全」）。实测：`34sp`（fontScale 1.1 / 520dpi）只量出 91px 高，而其它字号都是 1.35~1.38×（22sp→101px、16sp→77px、13sp→64px）；描的字其实一直是 34sp（墨迹 85px = 0.7em ✔），就框子矮了。修法：`activity_main.xml` 里给 `addressValue` 显式 `android:lineHeight="44sp"` → 框 149px、墨迹居中（别指望 ROM 的字体度量） |
-| 小米上 `adb install -g`、`adb shell input tap` 都被拒 | `-g` → `SecurityException: ... INSTALL_GRANT_RUNTIME_PERMISSIONS`；`input tap` → `SecurityException: ... INJECT_EVENTS`（开发者选项里没开「USB 调试（安全设置）」就点不了）。所以：装包改用**同签名的 release 包**（`assembleRelease` + `install -r`，配置和已授权限都留着），点 UI 的活儿只能人肉干 |
+| 小米上 `adb install -g`、`adb shell input tap` 都被拒 | `-g` → `SecurityException: ... INSTALL_GRANT_RUNTIME_PERMISSIONS`；`input tap` → `SecurityException: ... INJECT_EVENTS`（开发者选项里没开「USB 调试（安全设置）」就点不了）。所以：装包改用**同签名的 release 包**（`assembleRelease` + `install -r`，配置和已授权限都留着），点 UI 的活儿只能人肉干（ColorOS 17 反过来：`install -g` 好使，但 `input tap` 命令不报错、界面也没反应 —— 想点 App 里的按钮同样只能人肉） |
 | debug 构建放行「家里 Wi-Fi 直连 2121」跑 curl 回归 | 没热点时状态栏也报「正在接收」，跟「需要开启热点」的警示卡自相矛盾，用户当场退回来。已删：接收只认热点网卡；真机回归改成让电脑连手机热点 |
 
 **顺带的事实**：这台机器开着热点时 `wlan0` 仍连着家里 Wi-Fi（驱动支持 AP+STA），所以无线调试不会因为开热点而断。
@@ -179,6 +180,7 @@ app/src/test/java/.../NetworkInfoTest.kt 4 个：热点网卡识别（小米 wla
 - UI：热点识别（地址行显示 `10.129.14.x（热点）`，虚拟网卡被过滤）、配置校验、自检图入库、事件列表
 - 「打开热点设置」按钮 → ColorOS「个人热点」页（`com.android.settings.WIFI_TETHER_SETTINGS`；即使用该设置应用已停在「网络共享」页，再点也能切过去）
 - **相机真人验收**：Z50II 经手机热点连 `10.129.14.x:2121`，回放上传成功，相册看到原文件名；连续多张 + 息屏不断线。2026-10-07 新版又跑一遍：`DSC_1794/1795/1798.NEF` 入库 `DCIM/CamFtp`（权限 `media_rw`、mime `image/x-nikon-nef`），私有目录 `filesDir/ftp` 无残留
+- **ColorOS 回归复验**（2026-10-07 20:03，修掉「STA 名单误杀 ap0」之后，release 包同签名覆盖装）：开热点 → 界面「正在接收」+ `10.129.14.60` + 标题行右侧「热点」标记，Z50II 连上并传完 2 张（「相机已连接 · 已收到 2 张」）；logcat 那行 `网卡 ap0=10.129.14.60(热点), wlan0=192.168.1.104 ｜ STA [wlan0, ap0]` 就是这次回归的物证
 - **热点自动起停**（真机 2026-10-07，App 不在前台）：关热点 → 服务自动停（常驻通知消失）；再开热点 → 服务**自动起**，系统日志 `Background started FGS: Allowed [... uidState: LAST; code:UID_VISIBLE ...]`；回前台发现「热点开着但没在收」也会补起
 - **小米 HyperOS 3 / Android 16 复验**（Xiaomi MIX Flip 2，2026-10-07）：热点网卡 = `wlan2` / `10.130.223.120`（`dumpsys tethering` 佐证），界面显示「正在接收 + 10.130.223.120 + 标题行右侧热点标记」，警示卡消失、服务自动起（`isForeground=true types=0x00000010`、通知在）—— 修复前这里显示的是「需要开启热点」+ `192.168.1.103(wlan0)`
 - 小米上关热点：`HotspotWatch: 收到 WIFI_AP_STATE_CHANGED state=10 → TETHER_STATE_CHANGED → state=11`，服务与通知自动停 ✔；**服务停掉、App 退回后台后再开热点：广播被 HyperOS 拦掉，不会自动起**（预期行为，见 §5），打开 App 立刻补起 ✔
@@ -209,12 +211,12 @@ app/src/test/java/.../NetworkInfoTest.kt 4 个：热点网卡识别（小米 wla
 ## 8. 复现 / 回归命令
 
 ```powershell
-gradle test                     # 17 个 JVM 用例
+gradle test                     # 18 个 JVM 用例
 gradle :app:testDebugUnitTest --rerun    # 强制重跑（复现竞态用）
 gradle assembleDebug --console=plain
 adb install -r -g app\build\outputs\apk\debug\app-debug.apk
 adb shell am start -n io.github.mangome.camftp/.MainActivity
-adb logcat -s HotspotWatch FtpService     # 热点广播收没收到 / 每张图的入库结果
+adb logcat -s HotspotWatch NetworkInfo FtpService   # 热点广播收没收到 / 网卡与 STA 名单 / 每张图的入库结果
 adb shell dumpsys activity broadcasts > temp\bc.txt   # 广播投给谁了：搜包名看 DELIVERED / skipped by policy
 ```
 
