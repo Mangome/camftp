@@ -9,7 +9,7 @@
     <!-- 服务状态下面的第二行 = 相机连接状态（唯一实证是 FTP 控制连接数）+ 已收到张数 -->
     <string name="status_camera_online">相机已连接 · 已收到 %1$d 张</string>
     <string name="status_camera_waiting">等待相机连接 · 已收到 %1$d 张</string>
-    <string name="status_camera_offline">相机没连着 · 上次连接 %1$s · 已收到 %2$d 张</string>
+    <string name="status_camera_offline">相机已断开 · 上次连接 %1$s · 已收到 %2$d 张</string>
 
     <string name="channel_name">FTP 接收</string>
     <string name="channel_desc">相机传图时显示的常驻通知</string>
@@ -20,9 +20,9 @@
     <!-- 相机读数 -->
     <string name="section_camera_title">相机的 FTP 设置</string>
     <string name="camera_no_ip">还没找到本机地址</string>
-    <string name="camera_need_hotspot">开热点后自动开始接收，地址显示在这里</string>
+    <string name="camera_need_hotspot">打开热点以获取 FTP 服务器 IP 信息</string>
     <string name="camera_other_addresses">当前网卡：%1$s</string>
-    <string name="camera_anonymous_note">相机上也选匿名登录，账号密码留空</string>
+    <string name="camera_anonymous_note">相机设置匿名登录，账号密码留空</string>
     <string name="field_port">端口</string>
     <string name="field_user">用户</string>
     <string name="field_password">密码</string>
