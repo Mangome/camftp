@@ -3,13 +3,18 @@ package io.github.mangome.camftp
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
 
 /**
  * 自检按钮的显隐全押在 [FtpState.Snapshot.anyStored] 上，而自检图又不该混进「已收到 N 张」——
  * 这两条一起守着（FtpState 是单例，一个用例里按顺序走完，免得跨用例相互污染）。
  */
 class FtpStateTest {
+
+    @get:Rule
+    val tmp = TemporaryFolder()
 
     @Test
     fun `失败不入账，自检成功收起按钮但不计数，真图才计数`() {
@@ -46,5 +51,36 @@ class FtpStateTest {
         FtpState.stopped()
         assertEquals(0, FtpState.snapshot.value.clients)
         assertTrue(FtpState.snapshot.value.lastConnectAt > 0)
+    }
+
+    /**
+     * 「最近收到」落盘：重启 App 列表 / 张数 / 「已成功入库过」都得回得来，否则用户以为图丢了。
+     * 注意：FtpState 是单例，这条会掀翻共享状态，finally 里归零，别污染别的用例。
+     */
+    @Test
+    fun `最近条目和已入库标识都落盘，重开 App 还在`() {
+        val dir = tmp.newFolder("state")
+        try {
+            FtpState.open(dir)   // 空目录 = 冷启动
+            FtpState.addEvent(
+                FtpState.Event(
+                    "DSC_0001.JPG", ok = true, detail = "DCIM/CamFtp",
+                    uri = "content://media/external/images/media/1", at = 1_700_000_000_000,
+                )
+            )
+            FtpState.addEvent(FtpState.Event("坏文件.JPG", ok = false, detail = "入库失败", at = 1_700_000_001_000))
+
+            FtpState.open(dir)   // 再读一遍 = 重启 App
+            val s = FtpState.snapshot.value
+            assertEquals(listOf("坏文件.JPG", "DSC_0001.JPG"), s.events.map { it.name })   // 新的在前
+            assertEquals(1, s.received)
+            assertTrue("重启后自检按钮不该又冒出来", s.anyStored)
+            // 每行都要显示时间，点行还要能打开图片：时间戳和 uri 都得原样回来
+            assertEquals(1_700_000_000_000L, s.events.last().at)
+            assertEquals("content://media/external/images/media/1", s.events.last().uri)
+        } finally {
+            FtpState.open(tmp.newFolder("reset"))   // 单例归零
+            assertEquals(0, FtpState.snapshot.value.received)
+        }
     }
 }

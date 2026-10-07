@@ -28,6 +28,8 @@ class FtpService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        // 服务可能先于 UI 起来（热点广播拉起）：落盘的「最近收到」先读回来，别被新条目顶掉
+        FtpState.attach(filesDir)
         HotspotWatch.attach(this)   // 服务常驻时也得盯着热点：用户关热点 = 停止接收
         getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(

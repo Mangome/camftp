@@ -68,13 +68,13 @@ app/src/main/java/io/github/mangome/camftp/
 ├── SinkFtplet.kt          上传回调：CWD/STOR 自动建目录，把文件丢给 executor；顺带数控制连接数（相机连没连）
 ├── HotspotWatch.kt        热点=开关：广播 + 回前台对齐 → 起/停 FtpService；HotspotReceiver 是清单里那份
 ├── FtpService.kt          前台服务 connectedDevice、静音常驻通知、wakelock、START_STICKY
-├── FtpState.kt            StateFlow 单例状态通道（服务→UI；另存相机会话数 / 上次连接时间）
+├── FtpState.kt            StateFlow 单例状态通道（服务→UI；另存相机会话数 / 上次连接时间）；「最近收到」落盘在 `filesDir/recent.bin`（§3.23）
 ├── NetworkInfo.kt         枚举 IPv4、过滤虚拟网卡、识别热点网卡（AP 专有名直接定案、wlanN 排除 STA，见 §3.20 / §5）
 └── MainActivity.kt        单屏 UI
 app/src/main/res/
 ├── values/colors.xml + values-night/colors.xml   全部颜色（cam_* 命名，深浅两套）
 ├── values/themes.xml      Theme.CamFtp：M3 槽位映射 + 状态栏/导航栏图标明暗
-└── layout/activity_main.xml   状态行（没热点时说的是「需要开启热点」）→ 热点设置按钮 → 相机读数卡 → 折叠的高级设置 → 最近收到
+└── layout/activity_main.xml   相机连接面板（整屏主角，§3.24）→ 热点设置按钮 → 相机读数卡 → 折叠的高级设置 → 最近收到
 app/src/test/java/.../FtpEngineTest.kt   10 个 JVM 用例（FTP 引擎全流程，含匿名登录开关两种状态、会话数回调）
 app/src/test/java/.../FtpStateTest.kt     2 个：自检/真图计数的口径、会话数增量（不变负数、不断清「上次连接」）
 app/src/test/java/.../HotspotWatchTest.kt 1 个：起/停/不动的规则（「热点=开关」的唯一规则来源）
@@ -104,11 +104,11 @@ app/src/test/java/.../NetworkInfoTest.kt 5 个：热点网卡识别（小米 wla
 
 比 v1 设计多做的：自检按钮、CWD 自动建目录、残留文件重试。
 
-15. **UI 视觉约定**（界面重构后定的，改界面前先看这条）：颜色只写在 `values/colors.xml` 与 `values-night/colors.xml`（`cam_*` 命名），`Theme.CamFtp` 负责把它们映射到 M3 槽位，**别在 layout 里写死颜色**；屏幕从上到下 = 状态行 + 主按钮 → 相机读数卡 → 折叠的高级设置 → 最近收到，全程左对齐；整屏只留一个视觉高峰（地址读数 34sp 等宽，相机要照着输），状态只用颜色编码不用装饰；等宽字体只用于地址/端口/账号/事件这些要逐字符比对的地方；配置类低频操作一律进折叠区，校验失败时自动展开（否则错误提示在收起的区域里，用户看不见）。**大字读数必须显式写 `android:lineHeight`**（不写就是赌 ROM 的字体度量，见 §5）；**「热点」标记写在读数卡标题行右侧**：34sp 等宽下 `10.130.223.120` 已占满卡片（实测 953/964px），tag 跟地址同行只会被挤出屏幕。
-16. **自检按钮是「情境化」的，不是设置项**：它长在「最近收到」区块里（配置类操作才进折叠区），只在 `FtpState.Snapshot.anyStored == false`（本进程还没有任何成功入库）时出现 —— 收到真图或自检成功即自动收起，**自检失败则留在列表下可重试**（失败不能把唯一的自检入口关掉）。显隐复用已有状态、不写 SharedPreferences，冷启动回到初始态自然回来（否则「想再自检一次」就得清 App 数据）。自检结果同时往事件列表写一条 `Event(name = "测试图", counts = false)`：`counts = false` 保证它不算进「已收到 N 张」（`FtpStateTest` 守着这两条）。
+15. **UI 视觉约定**（界面重构后定的，改界面前先看这条）：颜色只写在 `values/colors.xml` 与 `values-night/colors.xml`（`cam_*` 命名），`Theme.CamFtp` 负责把它们映射到 M3 槽位，**别在 layout 里写死颜色**；屏幕从上到下 = 相机连接面板（§3.24）→ 热点设置按钮 → 相机读数卡 → 折叠的高级设置 → 最近收到，全程左对齐；**整屏只留一个视觉高峰，而这个高峰是靠「底色」拿的，不是靠字号**：连接面板是整屏唯一一块暗色，白卡只是「往相机里填什么」，两块各管一事；地址读数保持 34sp 等宽不缩（相机要照着输）；状态只用颜色编码不用装饰；等宽字体只用于地址/端口/账号/事件这些要逐字符比对的地方；配置类低频操作一律进折叠区，校验失败时自动展开（否则错误提示在收起的区域里，用户看不见）。**大字读数必须显式写 `android:lineHeight`**（不写就是赌 ROM 的字体度量，见 §5）；**「热点」标记写在读数卡标题行右侧**：34sp 等宽下 `10.130.223.120` 已占满卡片（实测 953/964px），tag 跟地址同行只会被挤出屏幕。
+16. **自检按钮是「情境化」的，不是设置项**：它长在「最近收到」区块里（配置类操作才进折叠区），只在 `FtpState.Snapshot.anyStored == false`（本进程还没有任何成功入库）时出现 —— 收到真图或自检成功即自动收起，**自检失败则留在列表下可重试**（失败不能把唯一的自检入口关掉）。显隐复用已有状态（`anyStored`），**跟着「最近收到」一起落盘**（§3.23）：用户明确要求 —— 自检成功过就别在重启后再冒出来问一遍（代价：「想再自检一次」从此没有入口，要清 App 数据，这是用户点的取舍）。自检结果同时往事件列表写一条 `Event(name = "测试图", counts = false)`：`counts = false` 保证它不算进「已收到 N 张」（`FtpStateTest` 守着这两条）。
 
 17. **「相机连上了没」是数出来的，不是猜的**：`SinkFtplet.onConnect/onDisconnect` → `FtpState.clientDelta(±1)`。jar 反编译实查过：只有 `DefaultFtpHandler` 调 ftplet 的 connect/disconnect，且只在 `sessionOpened` / `sessionClosed` —— 数据连接不触发，所以是精确配对（**别改成 `onLogin/onLogout`**：登出和断线是两条路，容易减重）。`lastConnectAt` 断开时**不清**，UI 才能说「相机没连着 · 上次连接 17:41」；服务重启时 `clients` 归零。UI 只当它是「有/没活动」的实证，不保证相机侧真的在拍。
-18. **热点没开 = 状态行说「需要开启热点」（`status_need_hotspot`）+ 状态行下常驻的「打开热点设置」按钮**：相机只能连热点，不在热点上那个 IP 对相机**完全没用**，所以 34sp 读数一并收起来，读数卡里只留一行引导（`camera_need_hotspot`）+ 一行 `当前网卡：…` 兜底（热点探测靠「网卡名形状 + 排除当前 STA」，换 ROM 猜错时地址还抄得到 —— 小米 MIX Flip 2 上这条兜底真救了场：界面里那句 `当前网卡：192.168.1.103(wlan0) 10.130.223.120(wlan2)` 一眼看出热点是 wlan2，这是不把兜底删掉的理由）。**原来那张错误色警示卡已删**：它跟状态行说的是同一件事，同一句提示不占两处；状态行文字的唯一出处是 `updateCameraHint()`（`render()` 别再自己 setText，会被它盖掉）。文案铁律：只说下一步该干什么，**不解释你观察到了什么网络状态**（用户原话：写「连的是别的网络」「地址会显示在下面」都没意义；上一版就因为解释句太长被退过两回）。
+18. **热点没开 = 连接面板说「需要开启热点」（`status_need_hotspot`）+ 面板下常驻的「打开热点设置」按钮**：相机只能连热点，不在热点上那个 IP 对相机**完全没用**，所以 34sp 读数一并收起来，读数卡里只留一行引导（`camera_need_hotspot`）+ 一行 `当前网卡：…` 兜底（热点探测靠「网卡名形状 + 排除当前 STA」，换 ROM 猜错时地址还抄得到 —— 小米 MIX Flip 2 上这条兜底真救了场：界面里那句 `当前网卡：192.168.1.103(wlan0) 10.130.223.120(wlan2)` 一眼看出热点是 wlan2，这是不把兜底删掉的理由）。**原来那张错误色警示卡已删**：它跟面板说的是同一件事，同一句提示不占两处；面板状态词（含这四种态）的唯一出处是 `updateCameraHint()`（`render()` 别再自己 setText，会被它盖掉）。文案铁律：只说下一步该干什么，**不解释你观察到了什么网络状态**（用户原话：写「连的是别的网络」「地址会显示在下面」都没意义；上一版就因为解释句太长被退过两回）。
 
 19. **按钮不放卡里，也不跟卡一起隐显**：「打开热点设置」常驻在卡下面。卡是「现在缺什么」的提醒，按钮是「该怎么办」的动作，拆成两行各司其职；按钮跟着卡一起出现/消失的话，热点开着时就没地方改热点设置了（关掉、换密码都要回到这个页）。同理**不放开始/停止按钮** —— 那是热点的事（§3.20）。
 
@@ -116,7 +116,13 @@ app/src/test/java/.../NetworkInfoTest.kt 5 个：热点网卡识别（小米 wla
 
 21. **不熄屏（前台常亮）用 layout 的 `android:keepScreenOn`，不写 `FLAG_KEEP_SCREEN_ON` 代码**：`activity_main.xml` 根 ScrollView 上一个属性，系统按「窗口可见」判定 —— 退到后台 / 息屏后自动失效，不用在 `onResume`/`onPause` 里配对加清标志（配对漏一边就是后台把用户屏幕焊死）。它跟服务是两件事：**息屏接收照旧**（前台服务管），常亮只管「App 打开着的时候别灭」。
 
-22. **「最近收到」每条是 `HH:mm:ss  ✓ 文件名  详情`**：时间戳存在 `FtpState.Event.at`（默认参数 = 入库时刻，两条调用点都不用传），到秒 —— 连拍几张都落在同一分钟里，只到分钟分不出先后。固定 24 小时制、用 `SimpleDateFormat` 而不是 `android.text.format.DateFormat`（12/24 小时制的处理在 ROM 上不一致，跟 §5 行高那个坑同源）。不显示日期：列表只留 10 条、看的是「刚刚收到没」，跨零点看不出是哪天 —— 真要分辨再补「非今天则带日期」。（排序：编号插在末尾是为了不改 §3.20 那批交叉引用。）
+22. **「最近收到」每条是 `HH:mm:ss  ✓ 文件名  详情`**：时间戳存在 `FtpState.Event.at`（默认参数 = 入库时刻，两条调用点都不用传），到秒 —— 连拍几张都落在同一分钟里，只到分钟分不出先后。固定 24 小时制、用 `SimpleDateFormat` 而不是 `android.text.format.DateFormat`（12/24 小时制的处理在 ROM 上不一致，跟 §5 行高那个坑同源）。**非今天的时间戳带月日**（`MM-dd HH:mm:ss`，`DateUtils.isToday` 判）：条目落盘后会跨天留着（§3.23），光有 `HH:mm:ss` 会看着像刚刚收到。（排序：编号插在末尾是为了不改 §3.20 那批交叉引用。）
+
+23. **「最近收到」落盘**：`FtpState.attach(filesDir)`（`MainActivity.onCreate` + `FtpService.onCreate` 各一次，幂等；服务可能先于 UI 起来），条目 / `received` / `anyStored` 三项一起存 —— 重启 App 列表和「已收到 N 张」都不清空。格式是 `DataOutputStream` 的定长字段、开头 `MAGIC` 版本号（**别改成 SharedPreferences + JSON**：`org.json` 在 JVM 单测里是桩，一用 `FtpStateTest` 就废；`writeUTF` 自带长度前缀，文件名里带制表符换行也不串行）。落盘失败全吞（`runCatching`）：丢的只是历史，不能因为写文件失败把接收链路带停。**会话数 / `lastConnectAt` 不落盘** —— 那是「这一次运行」的实况，服务重启就该归零（§3.17）。
+
+24. **点「最近收到」的一行 → 打开那张图**（`MainActivity.openStored`）：整行是热区（`ClickableSpan` + `LinkMovementMethod`），**只有 `uri` 非空的行才有热区** —— 失败行、以及 0.1.5 之前写下的自检行（`runSelfTest` 当时没传 `uri`）点不动，看着像「点击坏了」。所以「整行可点击」这个承诺的前提是**每条成功的入库都带上 `uri`**（新增调用点别忘了）。打开前先 `openAssetFileDescriptor(uri, "r")` 探活：图在相册里被删掉后 `ACTION_VIEW` 照样启动得起来（查看器空转或自己报错，用户看到的是「应用打不开这个文件」而不是我们的提示），探不到就 `Toast`「文件已被删除」（`event_gone`），不启查看器。
+
+24. **相机连接状态有专门的面板，它是整屏主角**（用户要求：连接状态是最重要的信息，得专门突出）。原来那行 22sp 的「未接收 / 正在接收」已经删掉（两个字符串都删了），换成屏幕最上面一块暗底面板：① 底色 `cam_instrument`，**两个主题下都是暗的**（夜里不能被一整块亮色砸到；也正因为这样它跟两张白卡不靠字号就能分层）；② 26sp 状态词 + 等宽副行，四态：`status_need_hotspot`（暗字）/ `status_camera_waiting`（亮字）/ `status_camera_online`（绿字）/ `status_camera_offline`（亮字），副行是「已收到 N 张」或「上次连接 HH:mm · 已收到 N 张」（张数为 0 且服务没跑时不摆占位）；③ **只有一处动效**：连上时左边那颗灯呼吸（`setLinkLamp()`，`ValueAnimator.areAnimatorsEnabled()` 为假就常亮），`lampOn` 挡重复重启；④ 状态词只有 `updateCameraHint()` 一处出处（它才知道有没有热点），字色语义只三个：连上=绿（跟灯同色）、等/断开=亮字、缺热点=暗字；⑤ 副行时间戳用固定 24 小时制 `SimpleDateFormat`（同 §3.22）。**别把 IP 搬进面板、也别把面板字号缩下去给地址让路**：两者分工是「暗面板 = 现在怎么样 / 白卡 = 往相机里填什么」。
 
 ---
 
@@ -163,7 +169,7 @@ app/src/test/java/.../NetworkInfoTest.kt 5 个：热点网卡识别（小米 wla
 | 小米上 `wlan2` 的 IP 会不会热点关了还留着（留了就误报） | 不会：3 秒粒度采样，`wlan2=10.130.223.120` 随关热点消失、开热点回来（2026-10-07 19:06）。所以「名字像 AP + 有 IPv4」两个条件就够，不用额外记状态 |
 | HyperOS 把热点广播拦到「已退后台的 App」 | `dumpsys activity broadcasts` 实测：`SKIPPED terminal-enq ... #3: BroadcastFilter{... ReceiverList{... io.github.mangome.camftp}}` —— **运行时那份也拦**（ColorOS 只拦清单那份），`am get-standby-bucket` = 40（RARE）。服务在跑（FGS）时广播照常送达：19:12:16 `WIFI_AP_STATE_CHANGED state=10 → TETHER_STATE_CHANGED → state=11` → 服务自动停。对策：代码不动，README 里写「小米上想让开热点自动起，给 App 开自启动 / 后台策略无限制」 |
 | HyperOS 上 34sp 等宽粗体的**行高被量成 0.75×** | 地址读数上下被切掉（用户截图报「IP 显示不全」）。实测：`34sp`（fontScale 1.1 / 520dpi）只量出 91px 高，而其它字号都是 1.35~1.38×（22sp→101px、16sp→77px、13sp→64px）；描的字其实一直是 34sp（墨迹 85px = 0.7em ✔），就框子矮了。修法：`activity_main.xml` 里给 `addressValue` 显式 `android:lineHeight="44sp"` → 框 149px、墨迹居中（别指望 ROM 的字体度量） |
-| 小米上 `adb install -g`、`adb shell input tap` 都被拒 | `-g` → `SecurityException: ... INSTALL_GRANT_RUNTIME_PERMISSIONS`；`input tap` → `SecurityException: ... INJECT_EVENTS`（开发者选项里没开「USB 调试（安全设置）」就点不了）。所以：装包改用**同签名的 release 包**（`assembleRelease` + `install -r`，配置和已授权限都留着），点 UI 的活儿只能人肉干（ColorOS 17 反过来：`install -g` 好使，但 `input tap` 命令不报错、界面也没反应 —— 想点 App 里的按钮同样只能人肉） |
+| 小米上 `adb install -g`、`adb shell input tap` 都被拒 | `-g` → `SecurityException: ... INSTALL_GRANT_RUNTIME_PERMISSIONS`；`input tap` → `SecurityException: ... INJECT_EVENTS`（开发者选项里没开「USB 调试（安全设置）」就点不了）。所以：装包改用**同签名的 release 包**（`assembleRelease` + `install -r`，配置和已授权限都留着），点 UI 的活儿只能人肉干。**ColorOS 17 上 `input tap` 能点普通按钮，却触发不了 `ClickableSpan`**（点「最近收到」里的行毫无反应，看着像功能坏了）—— 验热区/链接一律用 `input motionevent DOWN x y` 再 `UP x y`（两条命令间隔 ~120ms），实测能打开图/弹 Toast。坐标从 `uiautomator dump` 的 `bounds` 取，别目测（截图缩比 + 状态栏能让目测偏出上百像素），也**别复用旧坐标**：列表会随新事件长高，旧坐标会点到隔壁行（或隔壁界面） |
 | debug 构建放行「家里 Wi-Fi 直连 2121」跑 curl 回归 | 没热点时状态栏也报「正在接收」，跟「需要开启热点」的警示卡自相矛盾，用户当场退回来。已删：接收只认热点网卡；真机回归改成让电脑连手机热点 |
 
 **顺带的事实**：这台机器开着热点时 `wlan0` 仍连着家里 Wi-Fi（驱动支持 AP+STA），所以无线调试不会因为开热点而断。
@@ -190,7 +196,11 @@ app/src/test/java/.../NetworkInfoTest.kt 5 个：热点网卡识别（小米 wla
 - 大字读数不截断（小米 34sp 行高 0.75× 那个坑）：`addressValue` 框 149px、墨迹 890..974（上下各留 30~35px，不再贴着框边）
 - **没热点时的引导**（真机 2026-10-07，手机连着家里 Wi-Fi、热点没开）：状态行「需要开启热点」（旧版这里是「未接收」+ 顶部错误色卡）+ 状态行下常驻「打开热点设置」；读数卡不显示那个用不上的 IP，兜底显示「当前网卡：192.168.1.103(wlan0)」（HyperOS 3 复验，截图 `temp/camftp-nohotspot.png`）
 - **相机连接状态**：`开始接收` 后显示「等待相机连接 · 已收到 0 张」；电脑裸 TCP 连 `2121`（只发 `USER`、未登录）2 秒内变成「相机已连接 · 已收到 0 张」；断开后变「相机没连着 · 上次连接 17:41 · 已收到 0 张」。服务内测：用 `adb shell input tap` 点按钮 + PowerShell `TcpClient` 手动开连接（App 的 FGS 不 exported，`am start-foreground-service` 会被拒）
+- **相机连接面板**（真机 ColorOS 17，2026-10-07，release 包同签名覆盖装）：等相机态（`temp/panel-waiting.png`，强停 App 重开后 `clients`/`上次连接`归零而「已收到 4 张」从落盘里读回来）/ 连上态（绿字 + 灯呼吸，`temp/panel-connected.png`）/ 断开态（「上次连接 20:53 · 已收到 4 张」，`temp/panel-dark.png` 顺带是深色主题）；深色主题下面板是比底色更沉的「槽」，没变成一块刺眼的亮板。**「需要开启热点」那一态只核对了文案与配色代码，没截真机图**（验它得关掉用户正在用的热点），下次顺手补
 - **「最近收到」每条带时间**（ColorOS 机，2026-10-07 20:06）：列表读出 `20:06:00 ✓ DSC_1795.NEF DCIM/CamFtp` / `20:05:58 ✓ 测试图 DCIM/CamFtp`，时间与入库时刻一致，与文件名/详情同行不折行（截图 `temp/events-time.png`）。注：这台机上装 debug 包会被拒（`INSTALL_FAILED_UPDATE_INCOMPATIBLE`，签名不同），走的是 release 包
+
+- **「最近收到」落盘**（ColorOS 17 真机，2026-10-07 20:42，release 包覆盖装）：点自检入库一条 + 相机经热点传了张 `DSC_1802.NEF` → 强停 App 重开（pid `8097`→`9435`），列表两条都在、「已收到 1 张」（自检图不计数）、自检按钮保持收起（`anyStored` 落盘）；`clients` / 「上次连接」按设计归零。**非今天带月日没验**（得隔天再看一眼）
+- **点「最近收到」的行**（ColorOS 17 真机，2026-10-07 20:50）：图还在 → 打开系统相册；把 MediaStore 记录 `content delete` 掉再点 → `Toast`「文件已被删除」、焦点不动、不启查看器。造样本不用连热点（`adb forward` + `adb reverse`，见 §8），也不用删真图
 
 ### 未验证 / 已知风险（接手时先知道）
 
@@ -214,7 +224,7 @@ app/src/test/java/.../NetworkInfoTest.kt 5 个：热点网卡识别（小米 wla
 ## 8. 复现 / 回归命令
 
 ```powershell
-gradle test                     # 18 个 JVM 用例
+gradle test                     # 19 个 JVM 用例
 gradle :app:testDebugUnitTest --rerun    # 强制重跑（复现竞态用）
 gradle assembleDebug --console=plain
 adb install -r -g app\build\outputs\apk\debug\app-debug.apk
@@ -236,7 +246,16 @@ adb shell am get-standby-bucket io.github.mangome.camftp   # 40=RARE：后台广
 adb install -r app\build\outputs\apk\release\app-release.apk   # 同签名覆盖装，配置与已授权限都保留
 ```
 
-真机：电脑当 FTP 客户端 —— **电脑得连手机热点**（接收只认热点网卡，没有 debug 例外，见 §3.20）：
+真机：电脑当 FTP 客户端 —— **不连热点也能验入库链路**（控制连接 `forward`，主动模式的数据连接 `reverse` 回电脑，跟防火墙、热点都无关）：
+
+```powershell
+adb -s <serial> forward tcp:2121 tcp:2121
+adb -s <serial> reverse tcp:33333 tcp:33333   # 手机连自己的 127.0.0.1:33333，会被转回电脑的 33333
+curl.exe -sS --user camftp:123456 --ftp-port 127.0.0.1:33333 -T .\x.jpg ftp://127.0.0.1:2121/x.jpg
+adb -s <serial> forward --remove-all; adb -s <serial> reverse --remove-all   # 用完清掉
+```
+
+值真机（相机那条路）时，电脑得连手机热点（接收只认热点网卡，没有 debug 例外，见 §3.20）：
 
 ```powershell
 # 热点网卡名各 ROM 不同：ColorOS = ap0、HyperOS = wlan2（不确定就抄 App 界面上的地址）

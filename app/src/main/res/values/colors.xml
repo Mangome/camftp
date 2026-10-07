@@ -25,7 +25,17 @@
     <color name="cam_error_container">#FBE4E1</color>
     <color name="cam_on_error_container">#7A1B15</color>
 
+    <!-- 连接面板（整屏唯一的暗色块）：两个主题下都保持暗底，夜里看屏幕不会被一整块亮色砸到。
+         它跟两张读数卡（白底 + 描边）靠底色区分，不靠把字放大去跟 34sp 的地址读数抢 -->
+    <color name="cam_instrument">#101820</color>
+    <color name="cam_on_instrument">#E9EFF3</color>
+    <color name="cam_on_instrument_variant">#8FA0AC</color>
+
     <!-- 语义色：运行中的绿点 / 停止的灰点 / 入库失败的叉 -->
+    <!-- 面板上的那颗灯：连上=亮绿（呼吸）/ 没连上=暗灰 -->
+    <color name="cam_link_on">#4ED88F</color>
+    <color name="cam_link_off">#6E7C88</color>
+
     <color name="cam_status_ok">#10793C</color>
     <color name="cam_status_off">#8B939E</color>
     <color name="cam_status_error">#B3261E</color>

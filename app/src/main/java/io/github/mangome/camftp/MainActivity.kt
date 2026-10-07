@@ -1,6 +1,8 @@
 package io.github.mangome.camftp
 
 import android.Manifest
+import android.animation.ObjectAnimator
+import android.animation.ValueAnimator
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
@@ -16,12 +18,13 @@ import android.provider.Settings
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.TextPaint
-import android.text.format.DateFormat
+import android.text.format.DateUtils
 import android.text.method.LinkMovementMethod
 import android.text.style.ClickableSpan
 import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
 import android.view.View
+import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -42,7 +45,7 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * 单屏：状态 / 相机里要填的读数 / 高级设置（折叠）/ 最近收到。
+ * 单屏：相机连接面板（主角）/ 相机里要填的读数 / 高级设置（折叠）/ 最近收到。
  * 没有开始/停止按钮：接收跟着热点走（见 [HotspotWatch]），关热点就是停止。
  * 不做多页面、不做 Compose（文档 §5.2）。
  */
@@ -53,12 +56,20 @@ class MainActivity : AppCompatActivity() {
     private var bestIface: NetworkInfo.Iface? = null
     private var ifaces: List<NetworkInfo.Iface> = emptyList()
 
+    /** 最后一次快照：连接面板的文字靠它算（[updateCameraHint] 不只被 collect 叫） */
+    private var state = FtpState.Snapshot()
+
+    /** 面板那颗灯的呼吸动画：连上才转，[lampOn] 挡重复重启 */
+    private var lamp: ObjectAnimator? = null
+    private var lampOn = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         Config.load(this)
+        FtpState.attach(filesDir)   // collect 之前读回落盘的「最近收到」，首帧就是完整的
         fillConfigFields()
         setAdvancedOpen(savedInstanceState?.getBoolean(KEY_ADVANCED) == true)
 
@@ -87,6 +98,11 @@ class MainActivity : AppCompatActivity() {
         outState.putBoolean(KEY_ADVANCED, binding.advancedBody.isVisible)
     }
 
+    override fun onDestroy() {
+        lamp?.cancel()   // 无限循环的动画握着 View，别让它比 Activity 活得久
+        super.onDestroy()
+    }
+
     // 开热点是 App 外面的事，回到前台时重新枚举网卡 + 把服务对齐到热点状态
     override fun onResume() {
         super.onResume()
@@ -97,40 +113,29 @@ class MainActivity : AppCompatActivity() {
     private fun render(state: FtpState.Snapshot) {
         val wasRunning = running
         running = state.running
+        this.state = state
         // 服务起停多半是热点变了引起的（用户在设置里关的热点 / 热点超时自己关）：网卡重扫一遍，
         // 否则地址和「热点」标记会停在旧状态，等下次回前台才对上
         if (wasRunning != state.running) refreshBestAddress()
 
-        // 状态行文字由 updateCameraHint() 唯一负责（它才知道有没有热点），这里只管第二行
-        binding.statusDetail.isVisible = state.running
-        if (state.running) binding.statusDetail.text = cameraStatusText(state)
-        binding.statusDot.backgroundTintList = ColorStateList.valueOf(
-            ContextCompat.getColor(this, if (state.running) R.color.cam_status_ok else R.color.cam_status_off)
-        )
-
+        // 连接面板的文字由 updateCameraHint() 唯一负责（它才知道有没有热点），这里只管事件列表
+        updateCameraHint()
         renderEvents(state.events)
         // 本进程内已经有成功入库（真图或自检图）→ 入库链路已被证明，自检按钮收起来
         binding.selfTestButton.isVisible = !state.anyStored
-        updateCameraHint()
     }
 
-    /** 状态行第二行：相机连上了没（会话数）+ 已收到张数 */
-    private fun cameraStatusText(state: FtpState.Snapshot): String = when {
-        state.clients > 0 -> getString(R.string.status_camera_online, state.received)
-        state.lastConnectAt == 0L -> getString(R.string.status_camera_waiting, state.received)
-        else -> getString(
-            R.string.status_camera_offline,
-            DateFormat.getTimeFormat(this).format(Date(state.lastConnectAt)),
-            state.received,
-        )
-    }
+    /** 副行的时间戳：同样固定 24 小时制 [SimpleDateFormat]（理由见 [eventTime]） */
+    private val panelClock = SimpleDateFormat("HH:mm", Locale.getDefault())
 
     /**
      * 事件行的时间戳用固定 24 小时制 [SimpleDateFormat]，不走 `android.text.format.DateFormat`：
      * 12/24 小时制在 ROM 上的处理不一致（§5 的字体度量那个坑同源）。到秒 —— 连拍几张都落在
-     * 同一分钟里，只到分钟分不出先后；列表只有 10 条、看的是「刚刚收到没」，跨零点看不出是哪天
+     * 同一分钟里，只到分钟分不出先后。条目是落盘的，重启后列表里可能是前几天收的：非今天带上
+     * 月日，否则「18:23:45」看着像刚刚收到
      */
     private val eventTime = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+    private val eventDateTime = SimpleDateFormat("MM-dd HH:mm:ss", Locale.getDefault())
 
     private fun renderEvents(events: List<FtpState.Event>) {
         binding.eventEmpty.isVisible = events.isEmpty()
@@ -145,7 +150,8 @@ class MainActivity : AppCompatActivity() {
             if (i > 0) sb.append("\n")
             val lineStart = sb.length
             var start = sb.length
-            sb.append(eventTime.format(Date(e.at)))
+            val stamp = if (DateUtils.isToday(e.at)) eventTime else eventDateTime
+            sb.append(stamp.format(Date(e.at)))
             sb.append("  ")
             sb.setSpan(ForegroundColorSpan(dim), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             start = sb.length
@@ -175,10 +181,22 @@ class MainActivity : AppCompatActivity() {
         binding.eventList.text = sb
     }
 
-    /** 点「最近收到」里的一行 → 交给系统默认应用打开刚入库的那张图 */
+    /**
+     * 点「最近收到」里的一行 → 交给系统默认应用打开刚入库的那张图。
+     * 图可能已经在相册里被删了：那条 URI 照样能开出查看器（它自己空白页或报错），所以先探一下
+     * MediaStore 还能不能打开，删了就就地提示，别开个空页
+     */
     private fun openStored(uri: String) {
+        val target = Uri.parse(uri)
+        val alive = runCatching {
+            contentResolver.openAssetFileDescriptor(target, "r")?.use { true } ?: false
+        }.getOrDefault(false)
+        if (!alive) {
+            Toast.makeText(this, getString(R.string.event_gone), Toast.LENGTH_SHORT).show()
+            return
+        }
         // 带上授读标志：图是本 App 插进 MediaStore 的，相册等的读权限靠这条临时授予
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri))
+        val intent = Intent(Intent.ACTION_VIEW, target)
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         if (runCatching { startActivity(intent) }.isFailure) snackbar(getString(R.string.event_open_failed))
     }
@@ -191,17 +209,44 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateCameraHint() {
         val hotspotIface = bestIface?.takeIf { it.isHotspot }
+        val connected = state.running && state.clients > 0
         val anonymous = binding.anonymousSwitch.isChecked
 
-        // 前提条件：相机只能连热点。没热点时状态行说的就是「需要开启热点」
+        // 前提条件：相机只能连热点。没热点时面板说的就是「需要开启热点」
         // （原来另有一张错误色警示卡，跟这行是同一件事，已删）
+        // 颜色只用三个语义：连上=面板上的绿（跟灯同色），等/断开=面板上的亮字，缺热点=暗字
         binding.statusText.setText(
             when {
                 hotspotIface == null -> R.string.status_need_hotspot
-                running -> R.string.status_running
-                else -> R.string.status_stopped
+                connected -> R.string.status_camera_online
+                state.lastConnectAt == 0L -> R.string.status_camera_waiting
+                else -> R.string.status_camera_offline
             }
         )
+        binding.statusText.setTextColor(
+            ContextCompat.getColor(
+                this,
+                when {
+                    connected -> R.color.cam_link_on
+                    hotspotIface == null -> R.color.cam_on_instrument_variant
+                    else -> R.color.cam_on_instrument
+                },
+            )
+        )
+
+        // 副行：张数什么时候都有意义；「上次连接」只在「断开但连过」时说
+        // （张数为 0 且服务没跑时不摆一行「已收到 0 张」占位）
+        binding.statusDetail.isVisible = state.running || state.received > 0
+        binding.statusDetail.text = if (state.running && !connected && state.lastConnectAt > 0L) {
+            getString(
+                R.string.status_detail_offline,
+                panelClock.format(Date(state.lastConnectAt)),
+                state.received,
+            )
+        } else {
+            getString(R.string.status_detail_received, state.received)
+        }
+        setLinkLamp(connected)
 
         // 不在热点上：相机用不了这个地址，就别把 IP 摆成主角
         // （「打开热点设置」按钮常驻在状态行下面，不受这里影响）
@@ -226,6 +271,30 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun portText() = binding.portInput.text.toString().ifBlank { Config.port.toString() }
+
+    /**
+     * 面板左上角那颗灯：相机在对面就呼吸（相机机身那颗传输灯的意思），否则常暗。
+     * [lampOn] 挡重复调用 —— render() 每次状态变化都走到这儿，动画不能每次都重新开始。
+     * 关掉动画的机器（开发者选项里动画缩放=0）就常亮不呼吸。
+     */
+    private fun setLinkLamp(on: Boolean) {
+        if (on == lampOn) return
+        lampOn = on
+        lamp?.cancel()
+        lamp = null
+        binding.statusDot.alpha = 1f
+        binding.statusDot.backgroundTintList = ColorStateList.valueOf(
+            ContextCompat.getColor(this, if (on) R.color.cam_link_on else R.color.cam_link_off)
+        )
+        if (on && ValueAnimator.areAnimatorsEnabled()) {
+            lamp = ObjectAnimator.ofFloat(binding.statusDot, "alpha", 1f, 0.25f).apply {
+                duration = 1100
+                repeatMode = ValueAnimator.REVERSE
+                repeatCount = ValueAnimator.INFINITE
+                start()
+            }
+        }
+    }
 
     private fun setAdvancedOpen(open: Boolean) {
         binding.advancedBody.isVisible = open
@@ -297,9 +366,13 @@ class MainActivity : AppCompatActivity() {
                 drawSelfTestImage().compress(Bitmap.CompressFormat.JPEG, 90, file.outputStream())
                 MediaStoreSink(applicationContext, folder).onStored(file)
             }
-            // 自检结果也进「最近收到」：成功即收起按钮，失败留在列表里可重试
+            // 自检结果也进「最近收到」：成功即收起按钮，失败留在列表里可重试。
+            // 带上 uri，跟真图一样能点开（自检图也可能被用户在相册里删掉，那条路要走到同一个提示）
             FtpState.addEvent(
-                FtpState.Event(getString(R.string.self_test_event), result.ok, result.detail, counts = false)
+                FtpState.Event(
+                    getString(R.string.self_test_event), result.ok, result.detail,
+                    counts = false, uri = result.uri,
+                )
             )
             val text = if (result.ok) {
                 getString(R.string.self_test_ok, result.displayName, result.detail)

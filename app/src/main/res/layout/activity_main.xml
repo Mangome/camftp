@@ -2,7 +2,7 @@
 <!-- targetSdk 36 → 系统强制 edge-to-edge，内容会画到状态栏/导航栏底下。
      fitsSystemWindows 把系统栏 insets 变成 root 的 padding（内边距要留在子 View 上，
      否则 View.computeSystemWindowInsets 认为该边已有 padding 就不再补 inset）。
-     结构：状态 + 热点设置入口 → 相机读数卡 → 高级设置（折叠） → 最近收到 -->
+     结构：相机连接面板（主角）→ 热点设置入口 → 相机读数卡 → 高级设置（折叠） → 最近收到 -->
 <!-- keepScreenOn：App 在前台时不熄屏（对着屏幕抄地址、拍完照看「最近收到」都不用反复点亮）。
      系统按「这个窗口可见」判定，退到后台自动失效，不需要在 onPause 里手动清 -->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
@@ -22,41 +22,60 @@
         android:paddingEnd="20dp"
         android:paddingBottom="32dp">
 
-        <!-- 1. 状态 -->
+        <!-- 1. 相机连接面板：整屏视觉主角（唯一一块暗色 + 唯一的动效）。
+             「相机连上了没」比地址重要 —— 地址只在给相机填配置时用一次，连接状态是拍摄现场一直盯着的。
+             两块靠「底色」分层：暗面板 = 现在怎么样，白卡 = 往相机里填什么，不靠字号互抢。
+             状态词由 updateCameraHint() 唯一负责（只有它知道有没有热点），别在别处 setText -->
         <LinearLayout
+            android:id="@+id/linkPanel"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
+            android:layout_marginTop="20dp"
+            android:background="@drawable/bg_instrument"
+            android:orientation="vertical"
+            android:padding="20dp">
 
-            <View
-                android:id="@+id/statusDot"
-                android:layout_width="10dp"
-                android:layout_height="10dp"
-                android:background="@drawable/dot"
-                android:backgroundTint="@color/cam_status_off" />
-
-            <TextView
-                android:id="@+id/statusText"
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="10dp"
-                android:text="@string/status_stopped"
-                android:textColor="?attr/colorOnSurface"
-                android:textSize="22sp"
-                android:textStyle="bold" />
-        </LinearLayout>
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
 
-        <TextView
-            android:id="@+id/statusDetail"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:lineSpacingExtra="2dp"
-            android:textColor="?attr/colorOnSurfaceVariant"
-            android:textSize="14sp"
-            android:visibility="gone" />
+                <!-- 连上时呼吸（相机机身那颗传输灯的意思），颜色/动画都在 setLinkLamp() 里管 -->
+                <View
+                    android:id="@+id/statusDot"
+                    android:layout_width="12dp"
+                    android:layout_height="12dp"
+                    android:background="@drawable/dot"
+                    android:backgroundTint="@color/cam_link_off" />
+
+                <!-- lineHeight 必须显式给（同 addressValue）：不写就是赌 ROM 的字体度量 -->
+                <TextView
+                    android:id="@+id/statusText"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:layout_weight="1"
+                    android:letterSpacing="0.02"
+                    android:lineHeight="34sp"
+                    android:text="@string/status_need_hotspot"
+                    android:textColor="@color/cam_on_instrument"
+                    android:textSize="26sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <!-- 副行：已收到 N 张 / 上次连接 HH:mm。等宽 —— 张数是逐字符看的数字 -->
+            <TextView
+                android:id="@+id/statusDetail"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:fontFamily="monospace"
+                android:lineHeight="22sp"
+                android:textColor="@color/cam_on_instrument_variant"
+                android:textSize="15sp"
+                android:visibility="gone" />
+        </LinearLayout>
 
         <!-- 2. 热点设置入口：热点开着时也常驻（关掉 / 换密码都从这儿进），不跟状态一起隐显。
              没热点时的提示在状态行上（status_need_hotspot），不再单独出错误色卡 -->
