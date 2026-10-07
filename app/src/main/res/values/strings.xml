@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CamFtp</string>
+    <string name="start">启动</string>
+    <string name="stop">停止</string>
+    <string name="status_stopped">已停止</string>
+    <string name="status_running">运行中 · 0.0.0.0:%1$d · 已收 %2$d 张</string>
+    <string name="state_starting">正在启动…</string>
+    <string name="state_running">0.0.0.0:%1$d · 已收 %2$d 张</string>
+    <string name="channel_name">FTP 接收</string>
+    <string name="channel_desc">相机传图时的常驻状态提示（静音）</string>
+</resources>

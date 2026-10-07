@@ -80,8 +80,19 @@ class FtpEngineTest {
         } finally {
             client.disconnect()
         }
-        engine.awaitIdle()
+        awaitResults(1)
         return data
+    }
+
+    /**
+     * 等入库真发生。
+     * 注意：服务端的 Ftplet.onUploadEnd 回调可能在 226 响应之后才触发，
+     * 所以 storeFile() 返回不代表已经排队入库了，光 awaitIdle() 会扑空。
+     */
+    private fun awaitResults(count: Int, timeoutMs: Long = 5_000) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (sink.results.size < count && System.currentTimeMillis() < deadline) Thread.sleep(20)
+        engine.awaitIdle()
     }
 
     @Test
@@ -118,6 +129,35 @@ class FtpEngineTest {
         assertNotNull("用户名密码都对，怎么认证失败？", um.authenticate(UsernamePasswordAuthentication("camftp", "123456")))
         assertNull("错误密码应该被拒", um.authenticate(UsernamePasswordAuthentication("camftp", "bad")))
         assertNotNull("getUserByName 拿不到用户", um.getUserByName("camftp"))
+    }
+
+    @Test
+    fun `往不存在的子目录 CWD 再上传也能成（curl 就是这条路）`() {
+        val data = payload()
+        val client = connect()
+        try {
+            assertTrue("登录失败", client.login("camftp", "123456"))
+            client.setFileType(FTP.BINARY_FILE_TYPE)
+            client.enterLocalPassiveMode()
+            val changed = client.changeWorkingDirectory("200NIKON")
+            assertTrue("CWD 到不存在的目录应该被自动创建：${client.replyString}", changed)
+            assertTrue("STOR 失败：${client.replyString}", client.storeFile("DSC_0005.JPG", ByteArrayInputStream(data)))
+        } finally {
+            client.disconnect()
+        }
+        awaitResults(1)
+        assertArrayEquals(data, sink.bytes[0])
+    }
+
+    @Test
+    fun `启动时会把残留文件重试入库`() {
+        val leftover = File(home, "DSC_0009.JPG").apply { writeBytes(payload(1024)) }
+
+        engine.retryPending()
+        awaitResults(1)
+
+        assertEquals("DSC_0009.JPG", sink.results[0].displayName)
+        assertFalse("重试成功后源文件应被搬走", leftover.exists())
     }
 
     @Test

@@ -85,8 +85,12 @@ class FtpEngine(
         workers = null
     }
 
-    /** 等待已排队的入库任务跑完（测试用；FIFO 保证前面的都已完成）。 */
-    fun awaitIdle(timeoutMs: Long = 5_000) {
+    /** 服务启动时把上次没入库成功的残留文件重试一遍。 */
+    fun retryPending() {
+        homeDir.listFiles()?.filter { it.isFile }?.forEach { enqueue(it) }
+    }
+
+    /** 等待已排队的入库任务跑完（测试用；FIFO 保证前面的都已完成）。 */    fun awaitIdle(timeoutMs: Long = 5_000) {
         val executor = workers ?: return
         val latch = CountDownLatch(1)
         executor.execute { latch.countDown() }

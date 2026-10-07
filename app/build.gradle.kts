@@ -56,6 +56,7 @@ dependencies {
     implementation(libs.appcompat)
     implementation(libs.material)
     implementation(libs.lifecycle.service)
+    implementation(libs.lifecycle.runtime.ktx)
 
     // FTP 引擎：prim-ftpd 同款，Android 上已验证可用
     implementation(libs.ftpserver.core) {
