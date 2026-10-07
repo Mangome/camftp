@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [0.1.2] — 2026-10-07
+
 ### 新增
 
 - **开热点就自动开始接收，关掉热点自动停止**：热点本身就是总开关（系统广播 + 回到前台各对齐一次；App 不在前台也能被广播拉起来，ColorOS 17 实测放行后台启动前台服务）
@@ -61,5 +63,6 @@
 - 热点需要手动开（App 只能跳转到系统热点设置页）
 - 相机侧「目标文件夹」建议选「主文件夹」
 
+[0.1.2]: https://github.com/Mangome/camftp/releases/tag/v0.1.2
 [0.1.1]: https://github.com/Mangome/camftp/releases/tag/v0.1.1
 [0.1.0]: https://github.com/Mangome/camftp/releases/tag/v0.1.0
