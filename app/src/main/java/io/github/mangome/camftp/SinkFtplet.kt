@@ -20,6 +20,8 @@ class SinkFtplet(
     private val homeDir: File,
     /** 控制连接数变化：+1 连上 / -1 断开 */
     private val onClients: (Int) -> Unit = {},
+    /** 正在接收的文件名（null = 传完/断开）：顶部面板的「正在接收」靠它 */
+    private val onTransfer: (String?) -> Unit = {},
     private val onFile: (File) -> Unit,
 ) : DefaultFtplet() {
 
@@ -30,6 +32,7 @@ class SinkFtplet(
 
     override fun onDisconnect(session: FtpSession): FtpletResult {
         onClients(-1)
+        onTransfer(null)   // 传到一半断线：onUploadEnd 不会来，别让面板永远钉在「正在接收」
         return FtpletResult.DEFAULT
     }
 
@@ -40,8 +43,10 @@ class SinkFtplet(
                 val dir = session.fileSystemView.getFile(arg)
                 if (!dir.doesExist()) (dir.physicalFile as? File)?.mkdirs()
             }
-            "STOR", "APPE", "STOU" ->
+            "STOR", "APPE", "STOU" -> {
                 File(homeDir, arg.trimStart('/')).parentFile?.mkdirs()
+                onTransfer(arg)   // 数据连接还没开就能说「正在接收」，名字此刻已知
+            }
         }
         return FtpletResult.DEFAULT
     }
@@ -50,6 +55,7 @@ class SinkFtplet(
         val arg = request.argument
         val physical = session.fileSystemView.getFile(arg).physicalFile as? File
         val target = physical?.takeIf { it.isFile } ?: File(homeDir, arg.trimStart('/'))
+        onTransfer(null)
         if (target.isFile) onFile(target)
         return FtpletResult.DEFAULT
     }

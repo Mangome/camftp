@@ -17,15 +17,17 @@ import java.io.File
  */
 object FtpState {
 
-    /** [counts] = false 的事件（自检图）不进「已收到 N 张」的计数；[at] = 入库时刻，UI 每行显示 */
+    /** [counts] = false 的事件（自检图）不进「已收到 N 张」的计数；[at] = 入库时刻 */
     data class Event(
         val name: String,
         val ok: Boolean,
         val detail: String = "",
         val counts: Boolean = true,
-        /** 入库后的 MediaStore 地址（失败为 null）：UI 点这一行直接打开图片 */
+        /** 入库后的 MediaStore 地址（失败为 null）：UI 点这一格直接打开图片 */
         val uri: String? = null,
         val at: Long = System.currentTimeMillis(),
+        /** 入库时生成的小图（见 [Thumbnailer]）：「最近收到」的网格靠它显示，没有就画占位格子 */
+        val thumb: ByteArray? = null,
     )
 
     data class Snapshot(
@@ -39,13 +41,22 @@ object FtpState {
         val clients: Int = 0,
         /** 最近一次相机连上来的时刻，0 = 这次启动还没见过相机 */
         val lastConnectAt: Long = 0,
+        /** 正在接收的文件名（STOR 开始到结束之间），null = 没在传。实况，不落盘 */
+        val transferring: String? = null,
     )
 
-    private const val MAX_EVENTS = 10
+    /** 上限 12 = 网格 3 列的整 4 行（10 会排出 3+3+3+1 的独苗行） */
+    private const val MAX_EVENTS = 12
 
-    /** 落盘格式版本：读不认识就当没存过（丢的是历史条目，不影响接收） */
-    private const val MAGIC = 1
+    /**
+     * 落盘格式版本：读不认识就当没存过（**不兼容旧版本**，升级后历史条目丢一次、
+     * 「已收到 N 张」和 [Snapshot.anyStored] 都归零 —— 用户明确要的，别为它加兼容分支）。
+     */
+    private const val MAGIC = 2
     private const val STORE_NAME = "recent.bin"
+
+    /** 单条缩略图的上限：384px / q80 实测 ~30KB，留足余量；超出的只会是文件写坏了 */
+    private const val MAX_THUMB = 4 * 1024 * 1024
 
     private val _snapshot = MutableStateFlow(Snapshot())
     val snapshot: StateFlow<Snapshot> = _snapshot.asStateFlow()
@@ -65,9 +76,10 @@ object FtpState {
         read()
     }
 
-    fun running(port: Int) = _snapshot.update { it.copy(running = true, port = port, clients = 0) }
+    fun running(port: Int) =
+        _snapshot.update { it.copy(running = true, port = port, clients = 0, transferring = null) }
 
-    fun stopped() = _snapshot.update { it.copy(running = false, clients = 0) }
+    fun stopped() = _snapshot.update { it.copy(running = false, clients = 0, transferring = null) }
 
     /** [delta] = +1 连上 / -1 断开，来自 FtpEngine 的 ftplet 回调（控制连接，不含数据连接） */
     fun clientDelta(delta: Int) = _snapshot.update {
@@ -76,6 +88,9 @@ object FtpState {
             lastConnectAt = if (delta > 0) System.currentTimeMillis() else it.lastConnectAt,
         )
     }
+
+    /** [name] = 正在接收的文件名（STORE 开始），null = 传完了 / 连接断了 */
+    fun transfer(name: String?) = _snapshot.update { it.copy(transferring = name) }
 
     fun addEvent(event: Event) {
         _snapshot.update {
@@ -91,6 +106,8 @@ object FtpState {
     /**
      * 每条一个定长字段 [DataOutputStream]（`writeUTF` 自带长度前缀，文件名 / 详情里有制表符换行也不怕）。
      * 不加 fsync：几百字节，写丢了大不了少一条历史。
+     *
+     * ponytail: 12 条小图（~300KB）跟着整块重写，够用且永不留孤儿文件。真到几千条再改成缩略图目录 + 清理。
      */
     @Synchronized
     private fun persist() {
@@ -109,6 +126,7 @@ object FtpState {
                     out.writeBoolean(it.counts)
                     out.writeUTF(it.uri.orEmpty())
                     out.writeLong(it.at)
+                    it.thumb?.let { b -> out.writeInt(b.size); out.write(b) } ?: out.writeInt(0)
                 }
             }
         }
@@ -126,14 +144,16 @@ object FtpState {
                 // 文件写坏时别照着垃圾长度去分配列表
                 if (count !in 0..MAX_EVENTS) return@use
                 val events = List(count) {
-                    Event(
-                        name = input.readUTF(),
-                        ok = input.readBoolean(),
-                        detail = input.readUTF(),
-                        counts = input.readBoolean(),
-                        uri = input.readUTF().ifEmpty { null },
-                        at = input.readLong(),
-                    )
+                    val name = input.readUTF()
+                    val ok = input.readBoolean()
+                    val detail = input.readUTF()
+                    val counts = input.readBoolean()
+                    val uri = input.readUTF().ifEmpty { null }
+                    val at = input.readLong()
+                    val size = input.readInt()
+                    // 长度写坏时别照着垃圾值分配数组
+                    val thumb = if (size in 1..MAX_THUMB) ByteArray(size).also { input.readFully(it) } else null
+                    Event(name, ok, detail, counts, uri, at, thumb)
                 }
                 _snapshot.update { it.copy(events = events, received = received, anyStored = anyStored) }
             }

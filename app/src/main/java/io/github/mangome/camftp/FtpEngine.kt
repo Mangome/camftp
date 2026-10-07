@@ -29,6 +29,8 @@ class FtpEngine(
     private val anonymous: Boolean = false,
     /** 控制连接数变化（+1 连上 / -1 断开）：UI 靠它显示「相机已连接」 */
     private val onClients: (Int) -> Unit = {},
+    /** 正在接收的文件名（null = 传完/断开）：UI 顶部的「正在接收」靠它 */
+    private val onTransfer: (String?) -> Unit = {},
     private val onResult: (StoreResult) -> Unit = {},
 ) {
     private val log = LoggerFactory.getLogger("FtpEngine")
@@ -74,7 +76,7 @@ class FtpEngine(
             // 必须是可变 Map：DefaultFtpServerContext.dispose() 会 clear() 它（mapOf 是只读的，会崩）
             setFtplets(
                 mutableMapOf<String, Ftplet>(
-                    "sink" to SinkFtplet(homeDir, onFile = ::enqueue, onClients = onClients)
+                    "sink" to SinkFtplet(homeDir, onFile = ::enqueue, onClients = onClients, onTransfer = onTransfer)
                 )
             )
         }

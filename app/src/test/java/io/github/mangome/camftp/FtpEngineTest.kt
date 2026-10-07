@@ -44,6 +44,9 @@ class FtpEngineTest {
     private val clientSum = AtomicInteger()
     private val clientCounts = CopyOnWriteArrayList<Int>()
 
+    /** 传输中状态的变动序列：UI 顶部面板的「正在接收」就靠它 */
+    private val transfers = CopyOnWriteArrayList<String?>()
+
     @Before
     fun setUp() {
         home = Files.createTempDirectory("camftp-home").toFile()
@@ -56,6 +59,7 @@ class FtpEngineTest {
             password = "123456",
             sink = sink,
             onClients = { delta -> clientCounts += clientSum.addAndGet(delta) },
+            onTransfer = { transfers += it },
         )
         engine.start()
     }
@@ -125,6 +129,15 @@ class FtpEngineTest {
         assertEquals("DSC_0001.JPG", sink.results[0].displayName)
         assertArrayEquals(data, sink.bytes[0])
         assertFalse("sink 应已搬走源文件", File(home, "DSC_0001.JPG").exists())
+    }
+
+    @Test
+    fun `传输中状态：STOR 报出文件名，传完清空（顶部面板的「正在接收」靠这条）`() {
+        store(passive = true)
+
+        assertEquals("开始就该报出文件名", "DSC_0001.JPG", transfers.first())
+        assertNull("传完必须清空，否则面板钉在「正在接收」", transfers.last())
+        assertEquals("只该在开始时报一次名字", 1, transfers.count { it != null })
     }
 
     @Test

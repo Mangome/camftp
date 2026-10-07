@@ -6,6 +6,7 @@
          状态词只说下一步该干什么、或者「谁在对面」，不解释观察到的网络状态（旧版就因为这个被退过）。 -->
     <string name="status_need_hotspot">需要开启热点</string>
     <string name="status_camera_online">相机已连接</string>
+    <string name="status_transferring">正在接收</string>
     <string name="status_camera_waiting">等待相机连接</string>
     <string name="status_camera_offline">相机已断开</string>
     <string name="status_detail_offline">上次连接 %1$s</string>

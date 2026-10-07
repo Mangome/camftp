@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -17,13 +18,13 @@ import android.os.Bundle
 import android.provider.Settings
 import android.text.SpannableStringBuilder
 import android.text.Spanned
-import android.text.TextPaint
 import android.text.format.DateUtils
-import android.text.method.LinkMovementMethod
-import android.text.style.ClickableSpan
 import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
-import android.view.View
+import android.util.LruCache
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.Space
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -36,6 +37,7 @@ import com.google.android.material.color.MaterialColors
 import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.textfield.TextInputLayout
 import io.github.mangome.camftp.databinding.ActivityMainBinding
+import io.github.mangome.camftp.databinding.ItemRecentBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -83,7 +85,6 @@ class MainActivity : AppCompatActivity() {
         binding.selfTestButton.setOnClickListener { runSelfTest() }
         binding.aboutButton.setOnClickListener { showAbout() }
         binding.advancedHeader.setOnClickListener { setAdvancedOpen(!binding.advancedBody.isVisible) }
-        binding.eventList.movementMethod = LinkMovementMethod.getInstance()   // 事件行里的「点击打开」得靠它才响应
 
         lifecycleScope.launch {
             FtpState.snapshot.collect { render(it) }
@@ -137,26 +138,109 @@ class MainActivity : AppCompatActivity() {
     private val eventTime = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
     private val eventDateTime = SimpleDateFormat("MM-dd HH:mm:ss", Locale.getDefault())
 
+    /** 网格间距 8dp：行内格间距和行间距共用一个值。lazy：字段初始化早于 attachBaseContext，那时拿不到 resources */
+    private val gridGap by lazy { (8 * resources.displayMetrics.density).toInt() }
+
+    /** 解出来的小图按 uri 缓存：12 张 384px 约 7MB，8MB 上限挡住无界增长 */
+    private val thumbCache = object : LruCache<String, Bitmap>(8 * 1024) {
+        override fun sizeOf(key: String, value: Bitmap) = value.byteCount / 1024
+    }
+
+    /**
+     * 「最近收到」= 成功条目的缩略图网格 + 失败条目的日志小字。
+     * 成功条目不再显示时间和目录（目录就是 `DCIM/<配置的目录>`，每行都一样；图本身带着「刚拍的」的时间感），
+     * 失败条目没有图，时间和原因照旧 —— 那是「相机传了但没进相册」的唯一线索。
+     */
     private fun renderEvents(events: List<FtpState.Event>) {
         binding.eventEmpty.isVisible = events.isEmpty()
-        binding.eventList.isVisible = events.isNotEmpty()
-        if (events.isEmpty()) return
+        renderGrid(events.filter { it.ok })
+        renderFailures(events.filter { !it.ok })
+    }
 
-        val ok = ContextCompat.getColor(this, R.color.cam_status_ok)
+    /** 3 列方格，新的在前。整块重建：最多 12 格，比维护视图复用省事得多 */
+    private fun renderGrid(events: List<FtpState.Event>) {
+        binding.eventGrid.isVisible = events.isNotEmpty()
+        binding.eventGrid.removeAllViews()
+        events.chunked(GRID_COLUMNS).forEach { row ->
+            val rowView = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            row.forEachIndexed { column, event ->
+                val tile = ItemRecentBinding.inflate(layoutInflater, rowView, false)
+                bindTile(tile, event)
+                rowView.addView(
+                    tile.root,
+                    LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                        marginStart = if (column > 0) gridGap else 0
+                    },
+                )
+            }
+            // 最后一行不满时补空位，否则那几个格子会被拉宽，跟上面几行对不齐
+            repeat(GRID_COLUMNS - row.size) {
+                rowView.addView(Space(this), LinearLayout.LayoutParams(0, 1, 1f).apply { marginStart = gridGap })
+            }
+            binding.eventGrid.addView(
+                rowView,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                ).apply { topMargin = if (binding.eventGrid.childCount > 0) gridGap else 0 },
+            )
+        }
+    }
+
+    private fun bindTile(tile: ItemRecentBinding, event: FtpState.Event) {
+        tile.tileCaption.text = event.name
+        tile.tileImage.isVisible = event.thumb != null
+        tile.tileBadge.isVisible = event.thumb == null
+        if (event.thumb == null) {
+            // 出不了图（RAW 抽不出预览 / 原图已删 / 非媒体文件）：后缀比通用破图图标说得清楚
+            tile.tileBadge.text = event.name.substringAfterLast('.', "").uppercase().ifEmpty { "FILE" }
+        } else {
+            showThumb(event, tile.tileImage)
+        }
+        // 整块是热区（跟原来「整行可点」一个意思）。图在相册里被删了也能点，点了给提示（见 openStored）
+        tile.tileCard.contentDescription = event.name
+        tile.tileCard.isClickable = event.uri != null
+        tile.tileCard.setOnClickListener { event.uri?.let(::openStored) }
+    }
+
+    /**
+     * 小图直接存在事件里（[FtpState.Event.thumb]），解码丢到 IO 线程。
+     * 解回来时格子可能已经被下一次 render 换掉了（每次入库都会整块重建）：认 tag，不认 view
+     */
+    private fun showThumb(event: FtpState.Event, view: ImageView) {
+        val uri = event.uri ?: return
+        thumbCache.get(uri)?.let { view.setImageBitmap(it); return }
+        view.tag = uri
+        lifecycleScope.launch {
+            val bitmap = withContext(Dispatchers.IO) {
+                event.thumb?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }
+            } ?: return@launch
+            thumbCache.put(uri, bitmap)
+            if (view.tag == uri) view.setImageBitmap(bitmap)
+        }
+    }
+
+    /** 失败条目：没有图，退回原来的日志小字（等宽 + ✗ + 语义色；它们不合进网格） */
+    private fun renderFailures(events: List<FtpState.Event>) {
+        binding.eventLog.isVisible = events.isNotEmpty()
+        if (events.isEmpty()) {
+            binding.eventLog.text = null
+            return
+        }
+
         val fail = ContextCompat.getColor(this, R.color.cam_status_error)
-        val dim = MaterialColors.getColor(binding.eventList, MaterialR.attr.colorOnSurfaceVariant)
+        val dim = MaterialColors.getColor(binding.eventLog, MaterialR.attr.colorOnSurfaceVariant)
         val sb = SpannableStringBuilder()
         events.forEachIndexed { i, e ->
             if (i > 0) sb.append("\n")
-            val lineStart = sb.length
             var start = sb.length
             val stamp = if (DateUtils.isToday(e.at)) eventTime else eventDateTime
             sb.append(stamp.format(Date(e.at)))
             sb.append("  ")
             sb.setSpan(ForegroundColorSpan(dim), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             start = sb.length
-            sb.append(if (e.ok) "✓ " else "✗ ")
-            sb.setSpan(ForegroundColorSpan(if (e.ok) ok else fail), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            sb.append("✗ ")
+            sb.setSpan(ForegroundColorSpan(fail), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             start = sb.length
             sb.append(e.name)
             sb.setSpan(StyleSpan(Typeface.BOLD), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
@@ -166,19 +250,8 @@ class MainActivity : AppCompatActivity() {
                 sb.append(e.detail)
                 sb.setSpan(ForegroundColorSpan(dim), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             }
-            // 整行当热区（手指不用瞄准文件名）；失败行没有 uri，点不动
-            e.uri?.let { uri ->
-                sb.setSpan(
-                    object : ClickableSpan() {
-                        override fun onClick(widget: View) = openStored(uri)
-                        // 不下划线：整行密排的等宽列表会糊成链接墙，点击意图靠用户已知即可
-                        override fun updateDrawState(ds: TextPaint) = Unit
-                    },
-                    lineStart, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
-                )
-            }
         }
-        binding.eventList.text = sb
+        binding.eventLog.text = sb
     }
 
     /**
@@ -210,6 +283,7 @@ class MainActivity : AppCompatActivity() {
     private fun updateCameraHint() {
         val hotspotIface = bestIface?.takeIf { it.isHotspot }
         val connected = state.running && state.clients > 0
+        val transferring = state.transferring
         val anonymous = binding.anonymousSwitch.isChecked
 
         // 前提条件：相机只能连热点。没热点时面板说的就是「需要开启热点」
@@ -218,6 +292,7 @@ class MainActivity : AppCompatActivity() {
         binding.statusText.setText(
             when {
                 hotspotIface == null -> R.string.status_need_hotspot
+                transferring != null -> R.string.status_transferring
                 connected -> R.string.status_camera_online
                 state.lastConnectAt == 0L -> R.string.status_camera_waiting
                 else -> R.string.status_camera_offline
@@ -227,19 +302,21 @@ class MainActivity : AppCompatActivity() {
             ContextCompat.getColor(
                 this,
                 when {
-                    connected -> R.color.cam_link_on
+                    transferring != null || connected -> R.color.cam_link_on
                     hotspotIface == null -> R.color.cam_on_instrument_variant
                     else -> R.color.cam_on_instrument
                 },
             )
         )
 
-        // 副行只剩「上次连接」：只在「断开但连过」时说，其他状态没内容就不占位
+        // 副行：传输中报文件名，否则只在「断开但连过」时说「上次连接」，其他状态不占位
         val offlineSince = state.running && !connected && state.lastConnectAt > 0L
-        binding.statusDetail.isVisible = offlineSince
-        if (offlineSince) {
-            binding.statusDetail.text =
+        binding.statusDetail.isVisible = transferring != null || offlineSince
+        binding.statusDetail.text = when {
+            transferring != null -> transferring
+            offlineSince ->
                 getString(R.string.status_detail_offline, panelClock.format(Date(state.lastConnectAt)))
+            else -> ""
         }
         setLinkLamp(connected)
 
@@ -366,7 +443,7 @@ class MainActivity : AppCompatActivity() {
             FtpState.addEvent(
                 FtpState.Event(
                     getString(R.string.self_test_event), result.ok, result.detail,
-                    counts = false, uri = result.uri,
+                    counts = false, uri = result.uri, thumb = result.thumb,
                 )
             )
             val text = if (result.ok) {
@@ -433,5 +510,8 @@ class MainActivity : AppCompatActivity() {
 
     private companion object {
         const val KEY_ADVANCED = "advanced_open"
+
+        /** 网格列数：跟卡片圆角、间距一起构成「最近收到」的几何，改这里就够 */
+        const val GRID_COLUMNS = 3
     }
 }

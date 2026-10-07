@@ -91,6 +91,7 @@ class FtpService : Service() {
             password = password,
             anonymous = Config.anonymous,
             onClients = FtpState::clientDelta,
+            onTransfer = FtpState::transfer,
             sink = MediaStoreSink(this, Config.folder),
             onResult = ::onResult,
         )
@@ -113,7 +114,9 @@ class FtpService : Service() {
     private fun onResult(result: StoreResult) {
         if (result.ok) log.info("已入库 {}/{}", result.detail, result.displayName)
         else log.warn("入库失败 {}：{}", result.displayName, result.detail)
-        FtpState.addEvent(FtpState.Event(result.displayName, result.ok, result.detail, uri = result.uri))
+        FtpState.addEvent(
+            FtpState.Event(result.displayName, result.ok, result.detail, uri = result.uri, thumb = result.thumb)
+        )
         updateNotification()
     }
 

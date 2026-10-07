@@ -426,8 +426,18 @@
             android:textSize="15sp"
             android:textStyle="bold" />
 
+        <!-- 收到的照片：3 列方格，行和格子在 MainActivity.renderGrid() 里按条目拼（≤12 个，不需要 RecyclerView） -->
+        <LinearLayout
+            android:id="@+id/eventGrid"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:orientation="vertical"
+            android:visibility="gone" />
+
+        <!-- 只放失败条目（没有图）：「相机传了但没进相册」的唯一线索，成功条目一律在网格里 -->
         <TextView
-            android:id="@+id/eventList"
+            android:id="@+id/eventLog"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"

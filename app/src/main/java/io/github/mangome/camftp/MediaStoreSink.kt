@@ -50,9 +50,12 @@ class MediaStoreSink(
             return StoreResult(name, false, "保存失败：${t.message ?: t::class.simpleName}")
         }
 
+        // 缩略图必须在删源文件之前生成：生成失败不影响入库结果（Thumbnailer 自己吞异常，返回 null）
+        val thumb = Thumbnailer.of(file, mime)
+
         // 只有入库成功才删源文件：失败就留在私有目录，下次启动重试（宁留垃圾不丢图）
         if (!file.delete()) log.warn("源文件删不掉：{}", file.absolutePath)
-        return StoreResult(name, true, relativePath, uri.toString())   // uri 给 UI「点击打开」用
+        return StoreResult(name, true, relativePath, uri.toString(), thumb)   // uri 给 UI「点击打开」用
     }
 
     private fun mimeOf(name: String): String {

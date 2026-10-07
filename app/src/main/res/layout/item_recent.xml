@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 「最近收到」的一格。缩略图本身是内容，格子不加阴影、不加描边 —— 整屏唯一的高峰还是连接面板那块暗底。
+     出不了图（RAW 抽不出预览 / 原图已从相册删掉 / 非媒体文件）时是灰底 + 居中后缀，点击行为不变 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <!-- 圆角和点击水波纹都交给卡片（自己给 ImageView 切圆角要玩 clipToOutline）。
+         底是 surfaceVariant：解码没回来之前不闪白 -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/tileCard"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:clickable="true"
+        android:focusable="true"
+        app:cardBackgroundColor="?attr/colorSurfaceVariant"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="0dp"
+        app:strokeWidth="0dp">
+
+        <io.github.mangome.camftp.SquareFrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <ImageView
+                android:id="@+id/tileImage"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:importantForAccessibility="no"
+                android:scaleType="centerCrop"
+                android:visibility="gone" />
+
+            <!-- 说清楚「这一格是什么」比一个通用破图图标有用：NEF / MP4 / TXT -->
+            <TextView
+                android:id="@+id/tileBadge"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:fontFamily="monospace"
+                android:gravity="center"
+                android:textColor="?attr/colorOnSurfaceVariant"
+                android:textSize="12sp"
+                android:visibility="gone" />
+        </io.github.mangome.camftp.SquareFrameLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- 文件名：同一场景连拍的一串 DSC_18xx 靠缩略图分不出来。左对齐（跟整页一致）；
+         超长中间省略，保住编号和扩展名 -->
+    <TextView
+        android:id="@+id/tileCaption"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:ellipsize="middle"
+        android:fontFamily="monospace"
+        android:maxLines="1"
+        android:textColor="?attr/colorOnSurfaceVariant"
+        android:textSize="11sp" />
+</LinearLayout>
