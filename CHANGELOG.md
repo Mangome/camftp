@@ -2,7 +2,7 @@
 
 本项目遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [未发布]
+## [0.1.5] — 2026-10-07
 
 ### 新增
 
@@ -111,6 +111,7 @@
 - 热点需要手动开（App 只能跳转到系统热点设置页）
 - 相机侧「目标文件夹」建议选「主文件夹」
 
+[0.1.5]: https://github.com/Mangome/camftp/releases/tag/v0.1.5
 [0.1.4]: https://github.com/Mangome/camftp/releases/tag/v0.1.4
 [0.1.3]: https://github.com/Mangome/camftp/releases/tag/v0.1.3
 [0.1.2]: https://github.com/Mangome/camftp/releases/tag/v0.1.2

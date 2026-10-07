@@ -1,6 +1,6 @@
 # CamFtp 开发笔记
 
-**仓库** <https://github.com/Mangome/camftp> ｜ **状态**：功能完成，`v0.1.4` 已发布（热点即开关 §3.20、HyperOS / ColorOS 热点识别修复、App 在前台不熄屏、事件列表带时间）
+**仓库** <https://github.com/Mangome/camftp> ｜ **状态**：功能完成，`v0.1.5` 已发布（热点即开关 §3.20、HyperOS / ColorOS 热点识别修复、相机连接面板 §3.26、App 在前台不熄屏、「最近收到」换成缩略图网格 §3.25）
 **面向**：要改这个仓库的人 / 新的 agent session。原 v1 设计文档 `app-development.md` 已并入本文（连同它被实测证伪的部分，见 §5），不再单独维护。
 
 ---
@@ -78,7 +78,7 @@ app/src/main/java/io/github/mangome/camftp/
 app/src/main/res/
 ├── values/colors.xml + values-night/colors.xml   全部颜色（cam_* 命名，深浅两套）
 ├── values/themes.xml      Theme.CamFtp：M3 槽位映射 + 状态栏/导航栏图标明暗
-├── layout/activity_main.xml   相机连接面板（整屏主角，§3.24）→ 热点设置按钮 → 相机读数卡 → 折叠的高级设置 → 最近收到（网格 + 失败小字）
+├── layout/activity_main.xml   相机连接面板（整屏主角，§3.26）→ 热点设置按钮 → 相机读数卡 → 折叠的高级设置 → 最近收到（网格 + 失败小字）
 └── layout/item_recent.xml     「最近收到」的一格：圆角方图 + 后缀徽标 + 文件名
 app/src/test/java/.../FtpEngineTest.kt   10 个 JVM 用例（FTP 引擎全流程，含匿名登录开关两种状态、会话数回调）
 app/src/test/java/.../FtpStateTest.kt     4 个：自检/真图计数的口径、会话数增量（不变负数、不断清「上次连接」）、条目/缩略图落盘往返、旧格式当没存过
@@ -111,7 +111,7 @@ app/src/test/java/.../NetworkInfoTest.kt 5 个：热点网卡识别（小米 wla
 
 比 v1 设计多做的：自检按钮、CWD 自动建目录、残留文件重试。
 
-15. **UI 视觉约定**（界面重构后定的，改界面前先看这条）：颜色只写在 `values/colors.xml` 与 `values-night/colors.xml`（`cam_*` 命名），`Theme.CamFtp` 负责把它们映射到 M3 槽位，**别在 layout 里写死颜色**；屏幕从上到下 = 相机连接面板（§3.24）→ 热点设置按钮 → 相机读数卡 → 折叠的高级设置 → 最近收到，全程左对齐；**整屏只留一个视觉高峰，而这个高峰是靠「底色」拿的，不是靠字号**：连接面板是整屏唯一一块暗色，白卡只是「往相机里填什么」，两块各管一事；地址读数保持 34sp 等宽不缩（相机要照着输）；状态只用颜色编码不用装饰；等宽字体只用于地址/端口/账号/事件这些要逐字符比对的地方；配置类低频操作一律进折叠区，校验失败时自动展开（否则错误提示在收起的区域里，用户看不见）。**大字读数必须显式写 `android:lineHeight`**（不写就是赌 ROM 的字体度量，见 §5）；**「热点」标记写在读数卡标题行右侧**：34sp 等宽下 `10.130.223.120` 已占满卡片（实测 953/964px），tag 跟地址同行只会被挤出屏幕。
+15. **UI 视觉约定**（界面重构后定的，改界面前先看这条）：颜色只写在 `values/colors.xml` 与 `values-night/colors.xml`（`cam_*` 命名），`Theme.CamFtp` 负责把它们映射到 M3 槽位，**别在 layout 里写死颜色**；屏幕从上到下 = 相机连接面板（§3.26）→ 热点设置按钮 → 相机读数卡 → 折叠的高级设置 → 最近收到，全程左对齐；**整屏只留一个视觉高峰，而这个高峰是靠「底色」拿的，不是靠字号**：连接面板是整屏唯一一块暗色，白卡只是「往相机里填什么」，两块各管一事；地址读数保持 34sp 等宽不缩（相机要照着输）；状态只用颜色编码不用装饰；等宽字体只用于地址/端口/账号/事件这些要逐字符比对的地方；配置类低频操作一律进折叠区，校验失败时自动展开（否则错误提示在收起的区域里，用户看不见）。**大字读数必须显式写 `android:lineHeight`**（不写就是赌 ROM 的字体度量，见 §5）；**「热点」标记写在读数卡标题行右侧**：34sp 等宽下 `10.130.223.120` 已占满卡片（实测 953/964px），tag 跟地址同行只会被挤出屏幕。
 16. **自检按钮是「情境化」的，不是设置项**：它长在「最近收到」区块里（配置类操作才进折叠区），只在 `FtpState.Snapshot.anyStored == false`（本进程还没有任何成功入库）时出现 —— 收到真图或自检成功即自动收起，**自检失败则留在列表下可重试**（失败不能把唯一的自检入口关掉）。显隐复用已有状态（`anyStored`），**跟着「最近收到」一起落盘**（§3.23）：用户明确要求 —— 自检成功过就别在重启后再冒出来问一遍（代价：「想再自检一次」从此没有入口，要清 App 数据，这是用户点的取舍）。自检结果同时往事件列表写一条 `Event(name = "测试图", counts = false)`：`counts = false` 保证它不算进「已收到 N 张」（`FtpStateTest` 守着这两条）。
 
 17. **「相机连上了没」是数出来的，不是猜的**：`SinkFtplet.onConnect/onDisconnect` → `FtpState.clientDelta(±1)`。jar 反编译实查过：只有 `DefaultFtpHandler` 调 ftplet 的 connect/disconnect，且只在 `sessionOpened` / `sessionClosed` —— 数据连接不触发，所以是精确配对（**别改成 `onLogin/onLogout`**：登出和断线是两条路，容易减重）。`lastConnectAt` 断开时**不清**，UI 才能说「相机没连着 · 上次连接 17:41」；服务重启时 `clients` 归零。UI 只当它是「有/没活动」的实证，不保证相机侧真的在拍。
@@ -133,7 +133,7 @@ app/src/test/java/.../NetworkInfoTest.kt 5 个：热点网卡识别（小米 wla
    ③ **方向得自己修**：`BitmapFactory` 不应用 EXIF orientation（系统相册会转，所以这个坑只在这一层看得见），不修的话**竖拍的照片在网格里是躺倒的**，而方形裁剪下这就是构图错不错的问题。做法：用 `android.media.ExifInterface` 读方向（文件路径给普通图片，`ByteArrayInputStream` 给 RAW 抽出来的预览 JPEG —— 相机一般把主图的 EXIF 也抄了一份进去），按 [ExifTransform] 的表用 `Matrix` 转。读不到 / 格式不支持就当正常（装饰品不能因为读 EXIF 失败就把图丢了）。**先缩后转**：转一张 8000×6000 的原图要多占几十 MB。
    ④ **RAW 不认后缀白名单**：`BitmapFactory` 解不出来就去 `EmbeddedJpeg.largest()`，谁嵌了 JPEG 谁就有图 —— 换品牌/换机型不用改代码（原来那 10 个后缀的白名单已经删了）。不认后缀的视频（`.mts` 等）按 `VIDEO` 集合兜底去试首帧，否则会把一个几 GB 的文件当图片整读一遍找 JPEG；找预览前还有一道 256MB 的大小阀（入库是单线程，绝不能被一个大文件堵住）。
 
-24. **相机连接状态有专门的面板，它是整屏主角**（用户要求：连接状态是最重要的信息，得专门突出）。原来那行 22sp 的「未接收 / 正在接收」已经删掉（两个字符串都删了），换成屏幕最上面一块暗底面板：① 底色 `cam_instrument`，**两个主题下都是暗的**（夜里不能被一整块亮色砸到；也正因为这样它跟两张白卡不靠字号就能分层）；② 26sp 状态词 + 等宽副行，四态：`status_need_hotspot`（暗字）/ `status_camera_waiting`（亮字）/ `status_camera_online`（绿字）/ `status_camera_offline`（亮字），副行是「已收到 N 张」或「上次连接 HH:mm · 已收到 N 张」（张数为 0 且服务没跑时不摆占位）；③ **只有一处动效**：连上时左边那颗灯呼吸（`setLinkLamp()`，`ValueAnimator.areAnimatorsEnabled()` 为假就常亮），`lampOn` 挡重复重启；④ 状态词只有 `updateCameraHint()` 一处出处（它才知道有没有热点），字色语义只三个：连上=绿（跟灯同色）、等/断开=亮字、缺热点=暗字；⑤ 副行时间戳用固定 24 小时制 `SimpleDateFormat`（同 §3.22）。**别把 IP 搬进面板、也别把面板字号缩下去给地址让路**：两者分工是「暗面板 = 现在怎么样 / 白卡 = 往相机里填什么」。
+26. **相机连接状态有专门的面板，它是整屏主角**（用户要求：连接状态是最重要的信息，得专门突出）。原来那行 22sp 的「未接收 / 正在接收」已经删掉（旧字符串都没了；「正在接收」三个字后来以面板状态词 `status_transferring` 回来，见下 ②），换成屏幕最上面一块暗底面板：① 底色 `cam_instrument`，**两个主题下都是暗的**（夜里不能被一整块亮色砸到；也正因为这样它跟两张白卡不靠字号就能分层）；② 26sp 状态词 + 等宽副行，五态：`status_need_hotspot`（暗字）/ `status_camera_waiting`（亮字）/ `status_camera_online`（绿字）/ `status_camera_offline`（亮字）/ `status_transferring`（绿字，`STOR` 一开始就切过来、传完 / 传到一半断线切回去），副行只在传输中报正在传的文件名、或「断开但连过」时报「上次连接 HH:mm」（**不再报「已收到 N 张」**：张数归整个会话，跟面板当下说的是哪一态没关系）；③ **只有一处动效**：连上时左边那颗灯呼吸（`setLinkLamp()`，`ValueAnimator.areAnimatorsEnabled()` 为假就常亮），`lampOn` 挡重复重启；④ 状态词只有 `updateCameraHint()` 一处出处（它才知道有没有热点），字色语义只三个：连上/传输中=绿（跟灯同色）、等/断开=亮字、缺热点=暗字；⑤ 副行时间戳用固定 24 小时制 `SimpleDateFormat`（同 §3.22）。**传输中状态来自 `SinkFtplet` 的 `onTransfer`（`STOR` 那一刻报名字、传完清空，见 §3.26）**。**别把 IP 搬进面板、也别把面板字号缩下去给地址让路**：两者分工是「暗面板 = 现在怎么样 / 白卡 = 往相机里填什么」。
 
 ---
 
