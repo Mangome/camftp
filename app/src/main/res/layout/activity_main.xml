@@ -64,7 +64,7 @@
                     android:textStyle="bold" />
             </LinearLayout>
 
-            <!-- 副行：已收到 N 张 / 上次连接 HH:mm。等宽 —— 张数是逐字符看的数字 -->
+            <!-- 副行：上次连接 HH:mm（只在「断开但连过」时露）-->
             <TextView
                 android:id="@+id/statusDetail"
                 android:layout_width="match_parent"

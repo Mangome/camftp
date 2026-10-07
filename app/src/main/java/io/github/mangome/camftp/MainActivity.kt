@@ -234,17 +234,12 @@ class MainActivity : AppCompatActivity() {
             )
         )
 
-        // 副行：张数什么时候都有意义；「上次连接」只在「断开但连过」时说
-        // （张数为 0 且服务没跑时不摆一行「已收到 0 张」占位）
-        binding.statusDetail.isVisible = state.running || state.received > 0
-        binding.statusDetail.text = if (state.running && !connected && state.lastConnectAt > 0L) {
-            getString(
-                R.string.status_detail_offline,
-                panelClock.format(Date(state.lastConnectAt)),
-                state.received,
-            )
-        } else {
-            getString(R.string.status_detail_received, state.received)
+        // 副行只剩「上次连接」：只在「断开但连过」时说，其他状态没内容就不占位
+        val offlineSince = state.running && !connected && state.lastConnectAt > 0L
+        binding.statusDetail.isVisible = offlineSince
+        if (offlineSince) {
+            binding.statusDetail.text =
+                getString(R.string.status_detail_offline, panelClock.format(Date(state.lastConnectAt)))
         }
         setLinkLamp(connected)
 
