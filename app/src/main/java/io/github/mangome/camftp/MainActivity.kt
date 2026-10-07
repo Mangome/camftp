@@ -146,7 +146,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun refreshBestAddress() {
-        ifaces = NetworkInfo.ipv4()                 // 已按「热点优先」排好序
+        ifaces = NetworkInfo.ipv4(this)             // 已按「热点优先」排好序
         bestIface = ifaces.firstOrNull()
         updateCameraHint()
     }

@@ -103,14 +103,34 @@
                 android:orientation="vertical"
                 android:padding="20dp">
 
-                <TextView
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:letterSpacing="0.06"
-                    android:text="@string/section_camera_title"
-                    android:textColor="?attr/colorOnSurfaceVariant"
-                    android:textSize="13sp"
-                    android:textStyle="bold" />
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:letterSpacing="0.06"
+                        android:text="@string/section_camera_title"
+                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+
+                    <!-- 「热点」标记跟标题同行：34sp 等宽下 `10.130.223.120` 已经占满整张卡片
+                         （实测 953/964px），地址行里再也塞不下它，塞了就会被挤出屏幕 -->
+                    <TextView
+                        android:id="@+id/hotspotTag"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/ip_hotspot_tag"
+                        android:textColor="?attr/colorPrimary"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:visibility="gone" />
+                </LinearLayout>
 
                 <!-- 有地址：念给相机听的那几行 -->
                 <LinearLayout
@@ -119,36 +139,22 @@
                     android:layout_height="wrap_content"
                     android:orientation="vertical">
 
-                    <LinearLayout
-                        android:layout_width="match_parent"
+                    <!-- 整屏唯一的大字读数（相机要照着逐字输）。lineHeight 必须显式给：
+                         Xiaomi MIX Flip 2 / HyperOS 3（fontScale 1.1 / 520dpi）上这个字号只量出
+                         91px 行高（其余字号都是 1.35~1.38×，正常该 ~168px），字被切掉顶部。
+                         显式行高 = 不依赖 ROM 的字体度量 -->
+                    <TextView
+                        android:id="@+id/addressValue"
+                        android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="10dp"
-                        android:gravity="bottom"
-                        android:orientation="horizontal">
-
-                        <TextView
-                            android:id="@+id/addressValue"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:fontFamily="monospace"
-                            android:letterSpacing="0.01"
-                            android:text="@string/camera_no_ip"
-                            android:textColor="?attr/colorOnSurface"
-                            android:textSize="34sp"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:id="@+id/hotspotTag"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="8dp"
-                            android:paddingBottom="4dp"
-                            android:text="@string/ip_hotspot_tag"
-                            android:textColor="?attr/colorPrimary"
-                            android:textSize="13sp"
-                            android:textStyle="bold"
-                            android:visibility="gone" />
-                    </LinearLayout>
+                        android:fontFamily="monospace"
+                        android:letterSpacing="0.01"
+                        android:lineHeight="44sp"
+                        android:text="@string/camera_no_ip"
+                        android:textColor="?attr/colorOnSurface"
+                        android:textSize="34sp"
+                        android:textStyle="bold" />
 
                     <LinearLayout
                         android:layout_width="match_parent"

@@ -57,7 +57,7 @@ object HotspotWatch {
     }
 
     /** 现在能不能收：只认热点网卡（相机的唯一入口，没热点接收毫无意义） */
-    fun canReceive(context: Context): Boolean = NetworkInfo.ipv4().any { it.isHotspot }
+    fun canReceive(context: Context): Boolean = NetworkInfo.ipv4(context).any { it.isHotspot }
 
     /** 把服务对齐到当前热点状态 */
     fun sync(context: Context) = when (serviceAction(canReceive(context), FtpState.snapshot.value.running)) {

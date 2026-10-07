@@ -118,7 +118,7 @@ class FtpService : Service() {
     private fun updateNotification() {
         val s = FtpState.snapshot.value
         // IP 每次重新枚举（只在启动/收到图时调用，频率很低），热点换网段也能跟上
-        val ip = NetworkInfo.preferred()?.ip ?: getString(R.string.ip_unknown)
+        val ip = NetworkInfo.preferred(this)?.ip ?: getString(R.string.ip_unknown)
         val text = getString(R.string.notification_received, ip, s.port, s.received)
         runCatching {
             NotificationManagerCompat.from(this).notify(NOTIFICATION_ID, buildNotification(text))
