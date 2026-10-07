@@ -1,6 +1,6 @@
 # CamFtp 开发笔记
 
-**仓库** <https://github.com/Mangome/camftp> ｜ **状态**：功能完成，`v0.1.0` 已发布，只剩可选的热点自动化（§7）
+**仓库** <https://github.com/Mangome/camftp> ｜ **状态**：功能完成，`v0.1.1` 已发布，只剩可选的热点自动化（§7）
 **面向**：要改这个仓库的人 / 新的 agent session。原 v1 设计文档 `app-development.md` 已并入本文（连同它被实测证伪的部分，见 §5），不再单独维护。
 
 ---
