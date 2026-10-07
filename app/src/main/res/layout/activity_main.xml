@@ -55,6 +55,42 @@
             android:textSize="14sp"
             android:visibility="gone" />
 
+        <!-- 2. 前提条件没满足（热点没开 / 不在热点上）：放在主按钮之上，先看到问题再动手。
+             这是整屏唯一用错误色的地方 —— 相机传图的前提就这一条，值得抢眼 -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/alertCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:visibility="gone"
+            app:cardBackgroundColor="?attr/colorErrorContainer"
+            app:cardCornerRadius="20dp"
+            app:cardElevation="0dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <TextView
+                    android:id="@+id/alertTitle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/alert_no_hotspot"
+                    android:textColor="?attr/colorOnErrorContainer"
+                    android:textSize="19sp"
+                    android:textStyle="bold" />
+
+                <!-- 这里的事件态里它是唯一的主色按钮：按钮会比「开始接收」高一档，热点没开时那就该先点它 -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/hotspotButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="@string/open_hotspot" />            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
         <com.google.android.material.button.MaterialButton
             android:id="@+id/toggleButton"
             android:layout_width="match_parent"
@@ -233,7 +269,8 @@
                         android:visibility="gone" />
                 </LinearLayout>
 
-                <!-- 没地址：说清下一步该做什么 -->
+                <!-- 不在热点上：相机用不了这个地址，就别把 IP 摆成主角。
+                     最后一行是兜底：换 ROM 认不出热点网卡名时，地址还能手工抄 -->
                 <LinearLayout
                     android:id="@+id/noIpBlock"
                     android:layout_width="match_parent"
@@ -244,41 +281,21 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:text="@string/camera_no_ip"
-                        android:textColor="?attr/colorOnSurface"
-                        android:textSize="20sp"
-                        android:textStyle="bold" />
+                        android:layout_marginTop="14dp"
+                        android:text="@string/camera_need_hotspot"
+                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:textSize="15sp" />
 
                     <TextView
+                        android:id="@+id/localAddresses"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="6dp"
-                        android:lineSpacingExtra="2dp"
-                        android:text="@string/camera_no_ip_detail"
+                        android:layout_marginTop="8dp"
+                        android:fontFamily="monospace"
                         android:textColor="?attr/colorOnSurfaceVariant"
-                        android:textSize="14sp" />
+                        android:textSize="12sp"
+                        android:visibility="gone" />
                 </LinearLayout>
-
-                <TextView
-                    android:id="@+id/cameraAdvice"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:lineSpacingExtra="2dp"
-                    android:text="@string/camera_not_hotspot"
-                    android:textColor="?attr/colorOnSurfaceVariant"
-                    android:textSize="14sp"
-                    android:visibility="gone" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/hotspotButton"
-                    style="@style/Widget.Material3.Button.TonalButton"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:text="@string/open_hotspot"
-                    android:visibility="gone" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 

@@ -17,6 +17,7 @@ import java.io.File
 import java.net.ServerSocket
 import java.nio.file.Files
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * 没有相机也能证明 FTP 层是活的：真起一个 FtpServer，用 commons-net 当客户端。
@@ -39,6 +40,10 @@ class FtpEngineTest {
     private lateinit var sink: RecordingSink
     private var port = 0
 
+    /** 会话数由 +1/-1 增量累出来，正是 UI 那边 FtpState.clientDelta 的用法 */
+    private val clientSum = AtomicInteger()
+    private val clientCounts = CopyOnWriteArrayList<Int>()
+
     @Before
     fun setUp() {
         home = Files.createTempDirectory("camftp-home").toFile()
@@ -50,6 +55,7 @@ class FtpEngineTest {
             user = "camftp",
             password = "123456",
             sink = sink,
+            onClients = { delta -> clientCounts += clientSum.addAndGet(delta) },
         )
         engine.start()
     }
@@ -93,6 +99,21 @@ class FtpEngineTest {
         val deadline = System.currentTimeMillis() + timeoutMs
         while (sink.results.size < count && System.currentTimeMillis() < deadline) Thread.sleep(20)
         engine.awaitIdle()
+    }
+
+    @Test
+    fun `相机连上来会话数变 1，断开归 0（UI 的「相机已连接」就靠它）`() {
+        val client = connect()
+        awaitClientCount(1, "TCP 连上后会话数应该是 1")
+
+        client.disconnect()
+        awaitClientCount(0, "断开后应该归 0")
+    }
+
+    private fun awaitClientCount(expected: Int, message: String, timeoutMs: Long = 5_000) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (clientCounts.lastOrNull() != expected && System.currentTimeMillis() < deadline) Thread.sleep(20)
+        assertEquals("$message，实际变动序列：$clientCounts", expected, clientCounts.lastOrNull())
     }
 
     @Test

@@ -21,6 +21,10 @@ object FtpState {
         val events: List<Event> = emptyList(),
         /** 本进程内成功入库过（真图或自检图）→ 入库链路已被证明，自检按钮可以收了 */
         val anyStored: Boolean = false,
+        /** 当前连着的相机会话数（FTP 控制连接）——「相机连上了没」的唯一实证 */
+        val clients: Int = 0,
+        /** 最近一次相机连上来的时刻，0 = 这次启动还没见过相机 */
+        val lastConnectAt: Long = 0,
     )
 
     private const val MAX_EVENTS = 10
@@ -28,9 +32,17 @@ object FtpState {
     private val _snapshot = MutableStateFlow(Snapshot())
     val snapshot: StateFlow<Snapshot> = _snapshot.asStateFlow()
 
-    fun running(port: Int) = _snapshot.update { it.copy(running = true, port = port) }
+    fun running(port: Int) = _snapshot.update { it.copy(running = true, port = port, clients = 0) }
 
-    fun stopped() = _snapshot.update { it.copy(running = false) }
+    fun stopped() = _snapshot.update { it.copy(running = false, clients = 0) }
+
+    /** [delta] = +1 连上 / -1 断开，来自 FtpEngine 的 ftplet 回调（控制连接，不含数据连接） */
+    fun clientDelta(delta: Int) = _snapshot.update {
+        it.copy(
+            clients = (it.clients + delta).coerceAtLeast(0),
+            lastConnectAt = if (delta > 0) System.currentTimeMillis() else it.lastConnectAt,
+        )
+    }
 
     fun addEvent(event: Event) = _snapshot.update {
         it.copy(

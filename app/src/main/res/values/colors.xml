@@ -21,6 +21,10 @@
     <color name="cam_inverse_on_surface">#EEF2F5</color>
     <color name="cam_inverse_primary">#8FD9EF</color>
 
+    <!-- 警示卡底色（没开热点这种「前提条件不满足」，跟入库失败区分开） -->
+    <color name="cam_error_container">#FBE4E1</color>
+    <color name="cam_on_error_container">#7A1B15</color>
+
     <!-- 语义色：运行中的绿点 / 停止的灰点 / 入库失败的叉 -->
     <color name="cam_status_ok">#10793C</color>
     <color name="cam_status_off">#8B939E</color>

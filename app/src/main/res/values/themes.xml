@@ -21,6 +21,10 @@
         <item name="colorOnSurfaceVariant">@color/cam_on_surface_variant</item>
         <item name="colorSurfaceContainer">@color/cam_surface_container</item>
         <item name="colorSurfaceContainerHigh">@color/cam_surface_container_high</item>
+        <item name="colorError">@color/cam_status_error</item>
+        <item name="colorErrorContainer">@color/cam_error_container</item>
+        <item name="colorOnErrorContainer">@color/cam_on_error_container</item>
+
         <item name="colorOutline">@color/cam_outline</item>
         <item name="colorOutlineVariant">@color/cam_outline_variant</item>
 

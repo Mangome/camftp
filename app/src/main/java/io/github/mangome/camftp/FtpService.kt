@@ -80,6 +80,7 @@ class FtpService : Service() {
             user = user,
             password = password,
             anonymous = Config.anonymous,
+            onClients = FtpState::clientDelta,
             sink = MediaStoreSink(this, Config.folder),
             onResult = ::onResult,
         )

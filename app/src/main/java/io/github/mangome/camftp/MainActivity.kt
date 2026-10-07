@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.graphics.Bitmap
@@ -16,6 +17,7 @@ import android.os.Bundle
 import android.provider.Settings
 import android.text.SpannableStringBuilder
 import android.text.Spanned
+import android.text.format.DateFormat
 import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
 import androidx.appcompat.app.AppCompatActivity
@@ -32,6 +34,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.Date
 
 /**
  * 单屏：状态 / 主开关 / 相机里要填的读数 / 高级设置（折叠）/ 最近收到。
@@ -42,6 +45,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private var running = false
     private var bestIface: NetworkInfo.Iface? = null
+    private var ifaces: List<NetworkInfo.Iface> = emptyList()
+
+    /** 调试构建（adb 装的 debug APK）：放行「热点没开也允许开始接收」，给家里 Wi-Fi 直连 2121 跑回归用 */
+    private val debuggable by lazy { (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0 }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -85,26 +92,49 @@ class MainActivity : AppCompatActivity() {
         running = state.running
         binding.statusText.setText(if (state.running) R.string.status_running else R.string.status_stopped)
         binding.statusDetail.isVisible = state.running
-        if (state.running) binding.statusDetail.text = getString(R.string.status_running_detail, state.received)
+        if (state.running) binding.statusDetail.text = cameraStatusText(state)
         binding.statusDot.backgroundTintList = ColorStateList.valueOf(
             ContextCompat.getColor(this, if (state.running) R.color.cam_status_ok else R.color.cam_status_off)
         )
 
-        binding.toggleButton.setText(if (state.running) R.string.stop else R.string.start)
-        // 运行中=「停止接收」用低对比的容器色，别把停止按钮画得和开始一样抢眼
-        val (bgAttr, fgAttr) = if (state.running) {
-            MaterialR.attr.colorSecondaryContainer to MaterialR.attr.colorOnSecondaryContainer
-        } else {
-            MaterialR.attr.colorPrimary to MaterialR.attr.colorOnPrimary
-        }
-        binding.toggleButton.backgroundTintList =
-            ColorStateList.valueOf(MaterialColors.getColor(binding.toggleButton, bgAttr))
-        binding.toggleButton.setTextColor(MaterialColors.getColor(binding.toggleButton, fgAttr))
+        updateToggle()
 
         renderEvents(state.events)
         // 本进程内已经有成功入库（真图或自检图）→ 入库链路已被证明，自检按钮收起来
         binding.selfTestButton.isVisible = !state.anyStored
         updateCameraHint()
+    }
+
+    /** 状态行第二行：相机连上了没（会话数）+ 已收到张数 */
+    private fun cameraStatusText(state: FtpState.Snapshot): String = when {
+        state.clients > 0 -> getString(R.string.status_camera_online, state.received)
+        state.lastConnectAt == 0L -> getString(R.string.status_camera_waiting, state.received)
+        else -> getString(
+            R.string.status_camera_offline,
+            DateFormat.getTimeFormat(this).format(Date(state.lastConnectAt)),
+            state.received,
+        )
+    }
+
+    /**
+     * 主按钮的份量跟着「现在最该做什么」走：
+     *  - 运行中 → 「停止接收」可点、容器色，不抢眼（停永远要能停）
+     *  - 热点开着 → 「开始接收」主色，唯一的高对比按钮
+     *  - 热点没开 → 「开始接收」置灰：相机根本连不上，出口在警示卡的「打开热点设置」。
+     *    测试用的「Wi-Fi 直连 2121」不靠这个按钮，靠调试构建（[debuggable]）放行
+     */
+    private fun updateToggle() {
+        val starting = !running
+        val hotspot = bestIface?.isHotspot == true
+        binding.toggleButton.setText(if (running) R.string.stop else R.string.start)
+        binding.toggleButton.isEnabled = !starting || hotspot || debuggable
+        binding.toggleButton.alpha = if (binding.toggleButton.isEnabled) 1f else 0.45f
+        val emphasized = starting && hotspot
+        val bgAttr = if (emphasized) MaterialR.attr.colorPrimary else MaterialR.attr.colorSecondaryContainer
+        val fgAttr = if (emphasized) MaterialR.attr.colorOnPrimary else MaterialR.attr.colorOnSecondaryContainer
+        binding.toggleButton.backgroundTintList =
+            ColorStateList.valueOf(MaterialColors.getColor(binding.toggleButton, bgAttr))
+        binding.toggleButton.setTextColor(MaterialColors.getColor(binding.toggleButton, fgAttr))
     }
 
     private fun renderEvents(events: List<FtpState.Event>) {
@@ -135,24 +165,31 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun refreshBestAddress() {
-        bestIface = NetworkInfo.preferred()
+        ifaces = NetworkInfo.ipv4()                 // 已按「热点优先」排好序
+        bestIface = ifaces.firstOrNull()
         updateCameraHint()
     }
 
     private fun updateCameraHint() {
-        val iface = bestIface
+        val hotspotIface = bestIface?.takeIf { it.isHotspot }
         val anonymous = binding.anonymousSwitch.isChecked
 
-        binding.readingBlock.isVisible = iface != null
-        binding.noIpBlock.isVisible = iface == null
-        binding.hotspotTag.isVisible = iface?.isHotspot == true
-        // 没在热点上就给出口：相机只能连热点，这时候用户要的是设置入口而不是找不到原因
-        val hotspotNeeded = iface == null || !iface.isHotspot
-        binding.cameraAdvice.isVisible = iface != null && !iface.isHotspot
-        binding.hotspotButton.isVisible = hotspotNeeded
+        // 前提条件：相机只能连热点。没热点就把「打开热点设置」顶到最上面，别让用户对着一堆用不上的读数找原因
+        binding.alertCard.isVisible = hotspotIface == null
 
-        if (iface != null) {
-            binding.addressValue.text = iface.ip
+        // 不在热点上时那个 IP 相机根本用不上，不摆成大字，复制也收起来
+        binding.readingBlock.isVisible = hotspotIface != null
+        binding.noIpBlock.isVisible = hotspotIface == null
+        binding.copyButton.isVisible = hotspotIface != null
+        binding.hotspotTag.isVisible = hotspotIface != null
+        binding.localAddresses.isVisible = hotspotIface == null && ifaces.isNotEmpty()
+        if (hotspotIface == null && ifaces.isNotEmpty()) {
+            binding.localAddresses.text =
+                getString(R.string.camera_other_addresses, ifaces.joinToString(" ") { "${it.ip}(${it.name})" })
+        }
+
+        hotspotIface?.let {
+            binding.addressValue.text = it.ip
             binding.portValue.text = portText()
             binding.userValue.text = binding.userInput.text.toString().ifBlank { Config.user }
             binding.passwordValue.text = binding.passwordInput.text.toString().ifBlank { Config.password }
@@ -160,6 +197,7 @@ class MainActivity : AppCompatActivity() {
         binding.userRow.isVisible = !anonymous
         binding.passwordRow.isVisible = !anonymous
         binding.anonymousNote.isVisible = anonymous
+        updateToggle()   // 热点开关状态直接决定主按钮的份量
     }
 
     private fun portText() = binding.portInput.text.toString().ifBlank { Config.port.toString() }

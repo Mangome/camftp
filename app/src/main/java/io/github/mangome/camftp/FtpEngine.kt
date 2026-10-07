@@ -27,6 +27,8 @@ class FtpEngine(
     private val sink: Sink,
     /** 允许匿名登录（相机侧开「匿名登录」）：用户名密码不校验 */
     private val anonymous: Boolean = false,
+    /** 控制连接数变化（+1 连上 / -1 断开）：UI 靠它显示「相机已连接」 */
+    private val onClients: (Int) -> Unit = {},
     private val onResult: (StoreResult) -> Unit = {},
 ) {
     private val log = LoggerFactory.getLogger("FtpEngine")
@@ -70,7 +72,11 @@ class FtpEngine(
             )
             // FtpServerFactory 没有 addFtplet()，只能整表设置。
             // 必须是可变 Map：DefaultFtpServerContext.dispose() 会 clear() 它（mapOf 是只读的，会崩）
-            setFtplets(mutableMapOf<String, Ftplet>("sink" to SinkFtplet(homeDir) { enqueue(it) }))
+            setFtplets(
+                mutableMapOf<String, Ftplet>(
+                    "sink" to SinkFtplet(homeDir, onFile = ::enqueue, onClients = onClients)
+                )
+            )
         }
 
         server = factory.createServer().also { it.start() }

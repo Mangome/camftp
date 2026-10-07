@@ -26,4 +26,23 @@ class FtpStateTest {
         FtpState.addEvent(FtpState.Event("DSC_0001.JPG", ok = true, detail = "DCIM/CamFtp"))
         assertEquals(before + 1, FtpState.snapshot.value.received)
     }
+
+    @Test
+    fun `会话数只认增量，多减一次不会变负，断开不清「上次连接」`() {
+        FtpState.running(2121)
+        assertEquals(0, FtpState.snapshot.value.clients)
+        assertEquals(0L, FtpState.snapshot.value.lastConnectAt)
+
+        FtpState.clientDelta(1)
+        assertEquals(1, FtpState.snapshot.value.clients)
+        assertTrue("连上要记下时间，断开后 UI 还要显示它", FtpState.snapshot.value.lastConnectAt > 0)
+
+        FtpState.clientDelta(1)    // 相机可能同时开几个会话
+        FtpState.clientDelta(-1)
+        assertEquals(1, FtpState.snapshot.value.clients)
+
+        FtpState.stopped()
+        assertEquals(0, FtpState.snapshot.value.clients)
+        assertTrue(FtpState.snapshot.value.lastConnectAt > 0)
+    }
 }

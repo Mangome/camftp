@@ -64,16 +64,17 @@ app/src/main/java/io/github/mangome/camftp/
 ├── MediaStoreSink.kt      入库：图片视频→DCIM/<dir>，其它→Download/<dir>；失败保留源文件
 ├── FtpEngine.kt           纯 JVM：FtpServer 配置/生命周期 + 单线程入库 executor + retryPending()
 ├── SimpleUserManager.kt   单用户明文认证 + 可选的匿名账号（坑最密集的地方，见 §5）
-├── SinkFtplet.kt          上传回调：CWD/STOR 自动建目录，把文件丢给 executor
+├── SinkFtplet.kt          上传回调：CWD/STOR 自动建目录，把文件丢给 executor；顺带数控制连接数（相机连没连）
 ├── FtpService.kt          前台服务 connectedDevice、静音常驻通知、wakelock、START_STICKY
-├── FtpState.kt            StateFlow 单例状态通道（服务→UI）
+├── FtpState.kt            StateFlow 单例状态通道（服务→UI；另存相机会话数 / 上次连接时间）
 ├── NetworkInfo.kt         枚举 IPv4、过滤虚拟网卡、优先选热点网卡（猜错了 App 就把热点标记漏掉，见 §5）
 └── MainActivity.kt        单屏 UI
 app/src/main/res/
 ├── values/colors.xml + values-night/colors.xml   全部颜色（cam_* 命名，深浅两套）
 ├── values/themes.xml      Theme.CamFtp：M3 槽位映射 + 状态栏/导航栏图标明暗
-└── layout/activity_main.xml   状态 → 相机读数卡 → 折叠的高级设置 → 最近收到
-app/src/test/java/.../FtpEngineTest.kt   9 个 JVM 用例（FTP 引擎全流程，含匿名登录开关两种状态）
+└── layout/activity_main.xml   状态 → （热点没开时的警示卡）→ 相机读数卡 → 折叠的高级设置 → 最近收到
+app/src/test/java/.../FtpEngineTest.kt   10 个 JVM 用例（FTP 引擎全流程，含匿名登录开关两种状态、会话数回调）
+app/src/test/java/.../FtpStateTest.kt     2 个：自检/真图计数的口径、会话数增量（不变负数、不断清「上次连接」）
 ```
 
 `compileSdk`/`targetSdk` 36、`minSdk` 29、ViewBinding、AGP 8.13.2 / Kotlin 2.2.21（见 `gradle/libs.versions.toml`）。
@@ -101,6 +102,11 @@ app/src/test/java/.../FtpEngineTest.kt   9 个 JVM 用例（FTP 引擎全流程�
 
 15. **UI 视觉约定**（界面重构后定的，改界面前先看这条）：颜色只写在 `values/colors.xml` 与 `values-night/colors.xml`（`cam_*` 命名），`Theme.CamFtp` 负责把它们映射到 M3 槽位，**别在 layout 里写死颜色**；屏幕从上到下 = 状态行 + 主按钮 → 相机读数卡 → 折叠的高级设置 → 最近收到，全程左对齐；整屏只留一个视觉高峰（地址读数 34sp 等宽，相机要照着输），状态只用颜色编码不用装饰；等宽字体只用于地址/端口/账号/事件这些要逐字符比对的地方；配置类低频操作一律进折叠区，校验失败时自动展开（否则错误提示在收起的区域里，用户看不见）。
 16. **自检按钮是「情境化」的，不是设置项**：它长在「最近收到」区块里（配置类操作才进折叠区），只在 `FtpState.Snapshot.anyStored == false`（本进程还没有任何成功入库）时出现 —— 收到真图或自检成功即自动收起，**自检失败则留在列表下可重试**（失败不能把唯一的自检入口关掉）。显隐复用已有状态、不写 SharedPreferences，冷启动回到初始态自然回来（否则「想再自检一次」就得清 App 数据）。自检结果同时往事件列表写一条 `Event(name = "测试图", counts = false)`：`counts = false` 保证它不算进「已收到 N 张」（`FtpStateTest` 守着这两条）。
+
+17. **「相机连上了没」是数出来的，不是猜的**：`SinkFtplet.onConnect/onDisconnect` → `FtpState.clientDelta(±1)`。jar 反编译实查过：只有 `DefaultFtpHandler` 调 ftplet 的 connect/disconnect，且只在 `sessionOpened` / `sessionClosed` —— 数据连接不触发，所以是精确配对（**别改成 `onLogin/onLogout`**：登出和断线是两条路，容易减重）。`lastConnectAt` 断开时**不清**，UI 才能说「相机没连着 · 上次连接 17:41」；服务重启时 `clients` 归零。UI 只当它是「有/没活动」的实证，不保证相机侧真的在拍。
+18. **热点没开 = 顶部错误色警示卡，地址不再是主角 + 主按钮降权**：相机只能连热点，不在热点上那个 IP 对相机**完全没用**，所以 34sp 读数和「复制」一起收起来，卡里只留一行引导（`camera_need_hotspot`）+ 一行 `当前网卡：…` 兜底（热点探测靠网卡名白名单，换 ROM 猜错时地址还抄得到 —— 这是不把兜底删掉的理由）。警示卡用 `?attr/colorErrorContainer`（`Theme.CamFtp` 里映射），是全屏唯一的错误色用法，里面**只有一句「需要开启热点」+ 一个主色按钮**；同时 `updateToggle()` 把「开始接收」**置灰不可点**。文案铁律：只说下一步该干什么，**不解释你观察到了什么网络状态**（用户原话：写「连的是别的网络」「地址会显示在下面」都没意义；上一版就因为解释句太长被退过两回）。
+
+19. **测试用的口子不许长成用户看得见的 affordance**：热点没开时「开始接收」直接置灰，出口只剩警示卡。「在家里 Wi-Fi 下用电脑连 2121 跑 curl 回归」这条测试路径改由 `FLAG_DEBUGGABLE` 放行（只对 `assembleDebug` 装的包生效）—— 别为了测试把按钮改成「可点但降权」，用户明确否过；以后要加开发口子先自问「它是不是成了用户界面的一部份」。
 
 ---
 
@@ -156,6 +162,8 @@ app/src/test/java/.../FtpEngineTest.kt   9 个 JVM 用例（FTP 引擎全流程�
 - UI：热点识别（地址行显示 `10.129.14.x（热点）`，虚拟网卡被过滤）、配置校验、自检图入库、事件列表
 - 「打开热点设置」按钮 → ColorOS「个人热点」页（`com.android.settings.WIFI_TETHER_SETTINGS`；即使用该设置应用已停在「网络共享」页，再点也能切过去）
 - **相机真人验收**：Z50II 经手机热点连 `10.129.14.x:2121`，回放上传成功，相册看到原文件名；连续多张 + 息屏不断线
+- **没热点时的引导**（真机 2026-10-07，手机连着家里 Wi-Fi、热点没开）：顶部出错误色卡「需要开启热点」+ 主色「打开热点设置」按钮；「开始接收」置灰不可点；相机读数卡不再显示那个用不上的 IP、连复制一起收起，兜底显示「当前网卡：192.168.1.104(wlan0)」（置灰、断连两种状态都截图验过）
+- **相机连接状态**：`开始接收` 后显示「等相机连上来 · 已收到 0 张」；电脑裸 TCP 连 `2121`（只发 `USER`、未登录）2 秒内变成「相机已连接 · 已收到 0 张」；断开后变「相机没连着 · 上次连接 17:41 · 已收到 0 张」。服务内测：用 `adb shell input tap` 点按钮 + PowerShell `TcpClient` 手动开连接（App 的 FGS 不 exported，`am start-foreground-service` 会被拒）
 
 ### 未验证 / 已知风险（接手时先知道）
 
@@ -179,14 +187,14 @@ app/src/test/java/.../FtpEngineTest.kt   9 个 JVM 用例（FTP 引擎全流程�
 ## 8. 复现 / 回归命令
 
 ```powershell
-gradle test                     # 9 个 JVM 用例
+gradle test                     # 12 个 JVM 用例
 gradle :app:testDebugUnitTest --rerun    # 强制重跑（复现竞态用）
 gradle assembleDebug --console=plain
 adb install -r -g app\build\outputs\apk\debug\app-debug.apk
 adb shell am start -n io.github.mangome.camftp/.MainActivity
 ```
 
-真机：电脑当 FTP 客户端（不用热点，家里 Wi-Fi 直连也行）：
+真机：电脑当 FTP 客户端（不用热点，家里 Wi-Fi 直连也行；**得用 `assembleDebug` 装的包** —— release 里热点没开时「开始接收」是置灰的，见 §3.19）：
 
 ```powershell
 $ip = (adb shell ip -4 -o addr show wlan0) -replace '.*inet ([0-9.]+)/.*','$1'

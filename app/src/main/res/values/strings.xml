@@ -8,7 +8,10 @@
     <string name="status_stopped">已停止接收</string>
     <string name="status_starting">正在启动…</string>
     <string name="status_running">正在接收</string>
-    <string name="status_running_detail">已收到 %1$d 张</string>
+    <!-- 服务状态下面的第二行 = 相机连接状态（唯一实证是 FTP 控制连接数）+ 已收到张数 -->
+    <string name="status_camera_online">相机已连接 · 已收到 %1$d 张</string>
+    <string name="status_camera_waiting">等相机连上来 · 已收到 %1$d 张</string>
+    <string name="status_camera_offline">相机没连着 · 上次连接 %1$s · 已收到 %2$d 张</string>
 
     <string name="channel_name">FTP 接收</string>
     <string name="channel_desc">相机传图时显示的常驻通知</string>
@@ -19,8 +22,8 @@
     <!-- 相机读数 -->
     <string name="section_camera_title">相机的 FTP 设置</string>
     <string name="camera_no_ip">还没找到本机地址</string>
-    <string name="camera_no_ip_detail">先打开手机热点</string>
-    <string name="camera_not_hotspot">当前不是热点网络，相机连不上</string>
+    <string name="camera_need_hotspot">开热点后，地址显示在这里</string>
+    <string name="camera_other_addresses">当前网卡：%1$s</string>
     <string name="camera_anonymous_note">相机上也选匿名登录，账号密码留空</string>
     <string name="field_port">端口</string>
     <string name="field_user">用户</string>
@@ -31,6 +34,9 @@
     <string name="copy_all">地址 %1$s\n端口 %2$s\n用户 %3$s\n密码 %4$s</string>
     <string name="copy_all_anonymous">地址 %1$s\n端口 %2$s\n匿名登录：用户名密码留空</string>
     <string name="open_hotspot">打开热点设置</string>
+
+    <!-- 前提条件（热点）没满足的警示卡：只留一句状态 + 按钮，不解释观察到了什么 -->
+    <string name="alert_no_hotspot">需要开启热点</string>
     <string name="hotspot_failed">打开失败，请手动打开：设置 → 便携式热点</string>
 
     <!-- 高级设置 -->
