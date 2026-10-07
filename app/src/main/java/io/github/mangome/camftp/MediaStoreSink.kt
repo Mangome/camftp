@@ -12,7 +12,10 @@ import java.io.File
  * 收到文件 → 写进系统相册 → 删源文件。
  * Android 10+ 走 MediaStore，本 App **不需要任何存储权限**。
  */
-class MediaStoreSink(private val context: Context) : Sink {
+class MediaStoreSink(
+    private val context: Context,
+    private val folder: String = Config.DEFAULT_FOLDER,
+) : Sink {
 
     private val log = LoggerFactory.getLogger("MediaStoreSink")
 
@@ -20,9 +23,9 @@ class MediaStoreSink(private val context: Context) : Sink {
         val name = file.name
         val mime = mimeOf(name)
         val (collection, relativePath) = when {
-            mime.startsWith("image/") -> MediaStore.Images.Media.EXTERNAL_CONTENT_URI to "DCIM/CamFtp"
-            mime.startsWith("video/") -> MediaStore.Video.Media.EXTERNAL_CONTENT_URI to "DCIM/CamFtp"
-            else -> MediaStore.Downloads.EXTERNAL_CONTENT_URI to "Download/CamFtp"
+            mime.startsWith("image/") -> MediaStore.Images.Media.EXTERNAL_CONTENT_URI to "DCIM/$folder"
+            mime.startsWith("video/") -> MediaStore.Video.Media.EXTERNAL_CONTENT_URI to "DCIM/$folder"
+            else -> MediaStore.Downloads.EXTERNAL_CONTENT_URI to "Download/$folder"
         }
 
         val values = ContentValues().apply {

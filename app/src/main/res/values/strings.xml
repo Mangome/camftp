@@ -9,4 +9,37 @@
     <string name="state_running">0.0.0.0:%1$d · 已收 %2$d 张</string>
     <string name="channel_name">FTP 接收</string>
     <string name="channel_desc">相机传图时的常驻状态提示（静音）</string>
+
+    <string name="section_camera_title">相机里填这些</string>
+    <string name="camera_hint">地址 %1$s\n端口 %2$s\n用户 %3$s\n密码 %4$s</string>
+    <string name="camera_hint_no_ip">还没找到本机地址 —— 先开热点</string>
+    <string name="copy">复制</string>
+    <string name="copied">已复制到剪贴板</string>
+
+    <string name="section_config_title">配置</string>
+    <string name="label_port">控制端口</string>
+    <string name="label_passive">被动端口范围（如 32768-61000）</string>
+    <string name="label_user">用户名</string>
+    <string name="label_password">密码</string>
+    <string name="label_folder">相册目录名</string>
+    <string name="save">保存</string>
+    <string name="saved">已保存</string>
+    <string name="saved_restart">已保存，服务正按新配置重启</string>
+    <string name="field_required">不能为空</string>
+
+    <string name="section_ip_title">本机地址（带「热点」的那个念给相机）</string>
+    <string name="ip_none">没有可用的 IPv4 地址</string>
+    <string name="ip_hotspot">"  ← 热点"</string>
+    <string name="open_hotspot">打开热点设置</string>
+    <string name="hotspot_failed">打不开热点设置，请手动进：设置 → 便携式热点</string>
+
+    <string name="section_events_title">最近事件</string>
+    <string name="event_none">暂无</string>
+    <string name="event_ok">✓ %1$s → %2$s</string>
+    <string name="event_fail">✗ %1$s：%2$s</string>
+
+    <string name="self_test">自检：写一张测试图进相册</string>
+    <string name="self_test_running">自检中…</string>
+    <string name="self_test_ok">自检通过：%1$s（相册 %2$s）</string>
+    <string name="self_test_fail">自检失败：%1$s</string>
 </resources>

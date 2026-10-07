@@ -5,7 +5,6 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
-import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.IBinder
@@ -42,9 +41,16 @@ class FtpService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_STOP) {
-            stopSelf()
-            return START_NOT_STICKY
+        when (intent?.action) {
+            ACTION_STOP -> {
+                stopSelf()
+                return START_NOT_STICKY
+            }
+            ACTION_RESTART -> {
+                // 改配置后热重启：端口/凭据换掉，服务不中断重进前台
+                engine?.stop()
+                engine = null
+            }
         }
         start()
         return START_STICKY   // 被系统杀掉后自己回来（不做开机自启）
@@ -53,10 +59,10 @@ class FtpService : Service() {
     private fun start() {
         if (engine != null) return
 
-        val prefs = getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val port = prefs.getInt(KEY_PORT, Profiles.NIKON_Z50II.controlPort)
-        val user = prefs.getString(KEY_USER, DEFAULT_USER) ?: DEFAULT_USER
-        val password = prefs.getString(KEY_PASSWORD, DEFAULT_PASSWORD) ?: DEFAULT_PASSWORD
+        Config.load(this)
+        val port = Config.port
+        val user = Config.user
+        val password = Config.password
 
         // 先挂上前台，避免 startForegroundService 的 5 秒限制；起不来再降级退出
         startForeground(
@@ -66,11 +72,14 @@ class FtpService : Service() {
         )
 
         val newEngine = FtpEngine(
-            profile = Profiles.NIKON_Z50II.copy(controlPort = port),
+            profile = Profiles.NIKON_Z50II.copy(
+                controlPort = port,
+                passivePorts = Config.passivePorts.ifBlank { null },
+            ),
             homeDir = File(filesDir, HOME_DIR),
             user = user,
             password = password,
-            sink = MediaStoreSink(this),
+            sink = MediaStoreSink(this, Config.folder),
             onResult = ::onResult,
         )
         try {
@@ -136,17 +145,10 @@ class FtpService : Service() {
 
     companion object {
         const val ACTION_STOP = "io.github.mangome.camftp.STOP"
+        const val ACTION_RESTART = "io.github.mangome.camftp.RESTART"
 
         private const val CHANNEL_ID = "camftp"
         private const val NOTIFICATION_ID = 1
-        private const val PREFS = "camftp"
         private const val HOME_DIR = "ftp"
-
-        // M3 的 UI 会写这些 key；先给默认值，服务不依赖 UI
-        const val KEY_PORT = "port"
-        const val KEY_USER = "user"
-        const val KEY_PASSWORD = "password"
-        const val DEFAULT_USER = "camftp"
-        const val DEFAULT_PASSWORD = "123456"
     }
 }
