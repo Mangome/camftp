@@ -114,6 +114,8 @@ app/src/test/java/.../NetworkInfoTest.kt 4 个：热点网卡识别（小米 wla
 
 20. **「什么时候开始接收」只有一条规则：热点开着就该在收**（`HotspotWatch`）。触发点两个：① 系统广播 `WIFI_AP_STATE_CHANGED` / `TETHER_STATE_CHANGED`（清单里声明了 `HotspotReceiver` 一份、`attach()` 在 application context 上挂运行时接收器一份 —— **实测干活的是后者**：清单那份每次都被 `skipped by policy at enqueue: Background execution not allowed` 拦掉（§5）。**小米 HyperOS 更狠：App 退到后台（`am get-standby-bucket` = 40 RARE）后运行时那份也一起拦**，所以「服务在跑时关热点自动停」照常、「服务已停 + App 在后台时开热点自动起」在小米上不会发生，兜底是打开 App（见 §5 / §6）；② 回到前台（`MainActivity.onResume → sync()`）、服务自己被拉回来时（`FtpService.start()` 的兵底检查）。判定一律**重新扫网卡**（`NetworkInfo.ipv4(context)`：名字像 AP 且不是当前 STA），广播里带的数据只当闹钟；**唯一例外**是广播明说 `DISABLING/DISABLED/FAILED` → 直接停（那时热点网卡还挂着几百毫秒，等扫描会把这次「停」漏掉，通知栏就挂着一条假的「正在接收」）。`serviceAction()` 是唯一规则来源，`HotspotWatchTest` 守着（能收没起→起、不能收在跑→停、其余不动）。**别再加手动开关**：有按钮就得回答「用户按了停止之后广播来了要不要再起」，而这个语义没有好答案 —— 用户的习惯已经统一成「关热点就是停」。曾经用 `FLAG_DEBUGGABLE` 放行「家里 Wi-Fi 直连 2121」跑 curl 回归，结果没热点时状态栏也报「正在接收」，跟警示卡自相矛盾 → 删了（见 §5）。要加开发口子先自问：它会不会出现在用户界面里。
 
+21. **不熄屏（前台常亮）用 layout 的 `android:keepScreenOn`，不写 `FLAG_KEEP_SCREEN_ON` 代码**：`activity_main.xml` 根 ScrollView 上一个属性，系统按「窗口可见」判定 —— 退到后台 / 息屏后自动失效，不用在 `onResume`/`onPause` 里配对加清标志（配对漏一边就是后台把用户屏幕焊死）。它跟服务是两件事：**息屏接收照旧**（前台服务管），常亮只管「App 打开着的时候别灭」。
+
 ---
 
 ## 4. 协议与平台事实（有出处，改配置时别推翻）

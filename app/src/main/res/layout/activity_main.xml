@@ -3,13 +3,16 @@
      fitsSystemWindows 把系统栏 insets 变成 root 的 padding（内边距要留在子 View 上，
      否则 View.computeSystemWindowInsets 认为该边已有 padding 就不再补 inset）。
      结构：状态 + 热点设置入口 → 相机读数卡 → 高级设置（折叠） → 最近收到 -->
+<!-- keepScreenOn：App 在前台时不熄屏（对着屏幕抄地址、拍完照看「最近收到」都不用反复点亮）。
+     系统按「这个窗口可见」判定，退到后台自动失效，不需要在 onPause 里手动清 -->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="?android:attr/colorBackground"
     android:fillViewport="true"
-    android:fitsSystemWindows="true">
+    android:fitsSystemWindows="true"
+    android:keepScreenOn="true">
 
     <LinearLayout
         android:layout_width="match_parent"

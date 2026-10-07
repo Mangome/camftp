@@ -8,7 +8,7 @@ Android app that turns a phone into a tiny FTP receiver: the camera connects to 
 
 ## 特性
 
-- 前台服务常驻，息屏不断连；被动 / 主动模式都支持
+- 前台服务常驻，息屏不断连；**App 前台时不熄屏**；被动 / 主动模式都支持
 - **热点就是开关**：开热点自动开始接收，关掉热点自动停止（App 里没有开始 / 停止按钮，不用记什么状态）
 - 端口、账号、相册目录名都能改，改完自动热重启
 - 原图直存：图片 / 视频 → `DCIM/<目录>`，其它类型 → `Download/<目录>`，NEF / MP4 / 任意后缀都不会崩
