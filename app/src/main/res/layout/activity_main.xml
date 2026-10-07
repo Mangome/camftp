@@ -1,8 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- targetSdk 36 → 系统强制 edge-to-edge，内容会画到状态栏/导航栏底下。
+     fitsSystemWindows 把系统栏 insets 变成 root 的 padding（内边距要留在子 View 上，
+     否则 View.computeSystemWindowInsets 认为该边已有 padding 就不再补 inset） -->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fillViewport="true">
+    android:fillViewport="true"
+    android:fitsSystemWindows="true">
 
     <LinearLayout
         android:layout_width="match_parent"

@@ -1,0 +1,120 @@
+CamFtp (相机 FTP 接收 / Camera FTP receiver)
+Copyright 2026 Mangome
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+---
+
+This product includes the following third-party software, whose attribution
+notices are reproduced below as required by section 4(d) of the Apache
+License, Version 2.0.
+
+===============================================================================
+Apache FtpServer Core 1.2.1 — https://mina.apache.org/ftpserver-project
+License: Apache License 2.0
+------------------------------------------------------------------------------
+// ------------------------------------------------------------------
+// NOTICE file corresponding to the section 4d of The Apache License,
+// Version 2.0, in this case for Apache FtpServer Core
+// ------------------------------------------------------------------
+
+Apache FtpServer Core
+Copyright 2003-2025 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+
+This product includes/uses software, Apache Ftplet API
+(https://mina.apache.org/ftpserver-project), developed by The Apache Software
+Foundation (https://www.apache.org/)
+License: Apache 2.0 License (https://www.apache.org/licenses/LICENSE-2.0)
+
+This product includes/uses software, Apache MINA Core
+(https://mina.apache.org/mina-core/), developed by Apache MINA Project
+(https://mina.apache.org/)
+License: Apache 2.0 License (https://www.apache.org/licenses/LICENSE-2.0.txt)
+
+This product includes/uses software, SLF4J API Module (http://www.slf4j.org),
+developed by QOS.ch (http://www.qos.ch)
+License: MIT License (http://www.opensource.org/licenses/mit-license.php)
+
+===============================================================================
+Apache Ftplet API 1.2.1 — https://mina.apache.org/ftpserver-project
+License: Apache License 2.0
+------------------------------------------------------------------------------
+Apache Ftplet API
+Copyright 2003-2025 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+
+===============================================================================
+Apache MINA Core 2.2.4 — https://mina.apache.org/mina-core/
+License: Apache License 2.0
+------------------------------------------------------------------------------
+Apache MINA Core
+Copyright 2004-2024 Apache MINA Project
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+
+===============================================================================
+SLF4J API 1.7.36 / SLF4J Android binding 1.7.36 — http://www.slf4j.org
+License: MIT License
+------------------------------------------------------------------------------
+Copyright (c) 2004-2022 QOS.ch
+All rights reserved.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+of the Software, and to permit persons to whom the Software is furnished to do
+so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+===============================================================================
+AndroidX (core-ktx, appcompat, lifecycle), material-components-android,
+Kotlin standard library, kotlinx.coroutines
+License: Apache License 2.0
+------------------------------------------------------------------------------
+Copyright (C) 2005-2025 The Android Open Source Project
+Copyright (C) 2015 The Android Open Source Project
+Copyright 2014 The Android Open Source Project
+Copyright (C) 2015 Google Inc.
+Copyright 2014 Google Inc.
+Copyright 2011 The Android Open Source Project
+Copyright 2013 The Android Open Source Project
+Copyright 2017 The Android Open Source Project
+Copyright 2020 The Android Open Source Project
+Copyright (C) 2012 The Android Open Source Project
+Copyright (C) 2013 The Android Open Source Project
+Copyright (C) 2021 The Android Open Source Project
+Copyright (C) 2005-2013 The Android Open Source Project
+Copyright 2009 The Android Open Source Project
+Copyright 2018 The Android Open Source Project
+Licensed under the Apache License, Version 2.0.
+
+------------------------------------------------------------------------------
+Kotlin standard library / kotlinx.coroutines
+Copyright 2010-2023 JetBrains s.r.o. and Kotlin Programming Language contributors.
+Licensed under the Apache License, Version 2.0.
+
+===============================================================================
+Trademarks
+------------------------------------------------------------------------------
+Product names, logos and brands are property of their respective owners.
+"FTP" is a protocol name. Nikon is a trademark of Nikon Corporation; it is
+mentioned in this project's documentation only to describe interoperability
+with camera hardware, and this project is neither affiliated with nor
+endorsed by Nikon Corporation.

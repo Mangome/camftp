@@ -11,4 +11,8 @@ captures/
 *.keystore
 *.jks
 *.apk
+keystore.properties
 .pi
+
+# 与本项目无关的误提交产物（本地保留）
+openspec/

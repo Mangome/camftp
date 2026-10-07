@@ -8,7 +8,7 @@
 
 ## 0. 现状一句话
 
-**M1–M3 全部完成**：工程骨架 / FTP 引擎 / 前台服务 + MediaStore 入库 / 正式 UI，**电脑侧全流程 + 相机（Nikon Z50II）真人实测都过了**。剩下的只有 **M4**（开源文档、许可、签名发布）和可选的 **M5**（热点自动化）。
+**M1–M4 全部完成**：工程骨架 / FTP 引擎 / 前台服务 + MediaStore 入库 / 正式 UI / 开源文档 + 许可 + 签名发布，**电脑侧全流程 + 相机（Nikon Z50II）真人实测都过了**，`v0.1.0` 已发 GitHub Release。剩下的只有可选的 **M5**（热点自动化）。
 
 ---
 
@@ -20,7 +20,7 @@
 | M2 前台服务 + MediaStore 入库 + 通知 | ✅ | 提交 `df18f95`；真机：被动/主动模式上传 `226`、NEF→`DCIM`、txt→`Download`、子目录自动建、私有目录无残留 |
 | M3 正式 UI + 配置持久化 + 网卡识别 + 自检 | ✅ | 提交 `07b5572`；真机：热点识别 `ap0`、自检图入库、改端口自动热重启、事件列表正常 |
 | **相机真人验收** | ✅ | 用户 2026-10-07 报告通过（Z50II → 手机热点 → 相册） |
-| M4 文档 / 许可 / 签名发布 | ⬜ **待做** | 见 §7 |
+| M4 文档 / 许可 / 签名发布 | ✅ | tag `v0.1.0`：LICENSE + NOTICE + README + CHANGELOG + 签名 release APK + GitHub Release |
 | M5 热点自动化 | ⬜ 可选 | 见 §8 |
 
 ---
@@ -163,31 +163,30 @@ camftp/
 
 ---
 
-## 7. M4 待办（逐条可执行）
+## 7. M4 已完成（记录 + 后续注意）
 
-1. **`LICENSE`**：Apache-2.0 全文（与 Apache FtpServer / MINA / slf4j 一致，最省事）
-2. **`NOTICE`**：把下面这些抄进去（`gradle :app:dependencies --configuration releaseRuntimeClasspath` 可重新导出）：
-   - `org.apache.ftpserver:ftpserver-core:1.2.1`（Apache-2.0）
-   - `org.apache.ftpserver:ftplet-api:1.2.1`（Apache-2.0）
-   - `org.apache.mina:mina-core:2.2.4`（Apache-2.0）
-   - `org.slf4j:slf4j-api:1.7.36`、`org.slf4j:slf4j-android:1.7.36`（MIT）
-   - AndroidX 全家桶 / `com.google.android.material:material:1.12.0`（Apache-2.0）
-   - `commons-net` 只是 `testImplementation`，**不用**写进 NOTICE
-3. **`README.md`**：一句话说明 → 截图 → 相机设置图文步骤（Z50II + 通用尼康）→ **常见错误对照表** → 构建方法 → 隐私声明（只做局域网 FTP、不联网上传）→ **文档 §9 那 8 条坑必须都在**。应用名「CamFtp / 相机 FTP 接收」，**名字和图标里不许出现 Nikon/尼康商标**
-4. **截图**：`docs/images/app-top.png`、`app-bottom.png` 已备（状态栏含运营商名和热点 SSID，发布前裁剪或重拍）
-5. **版本号 / CHANGELOG**：现在是 `versionCode 1` / `versionName 0.1.0`
-6. **签名 release APK**：`keytool -genkeypair` 生成 keystore（**存本机、绝不入库**）+ `keystore.properties`（进 `.gitignore`）+ `build.gradle.kts` 读它配 `signingConfigs.release`
-7. **GitHub Release**：tag `v0.1.0` + 附带 APK
-8. **`openspec/`**：`openspec/config.yaml` 等 3 个文件是被 `git add -A` 误提交的（不是本项目产物）。要么 `git rm -r --cached openspec`，要么保留 —— 问用户
-9. **交付前自检**（文档 §11 逐条现状）：
+1. **`LICENSE`** ✅ Apache-2.0 全文，版权人 `Mangome`
+2. **`NOTICE`** ✅ 逐个抄了 ftpserver-core / ftplet-api / mina-core / slf4j（从 jar 里的 `META-INF/NOTICE` 原文提取，不是凭记忆写的）+ AndroidX/Kotlin/Material 一行；`commons-net` 是 `testImplementation`，没写进去
+3. **`README.md`** ✅ 中文为主 + 英文简介：一句话说明 → 三步上手 → Z50II 相机设置步骤 + 通用机型 → **12 条常见错误对照表**（含文档 §9 的 8 条坑全部）→ 已测/未测清单 → 构建 + 签名说明 → 隐私声明 → 许可
+4. **截图** ⏭ 用户决定**先不放截图**（现有两张是测试期抓的，「小微」悬浮球压住状态栏）。`docs/images/*.png` 仍在仓库里，README 没引用；要放图得重拍
+5. **版本号 / CHANGELOG** ✅ `versionCode 1` / `versionName 0.1.0` + `CHANGELOG.md`
+6. **签名 release APK** ✅ keystore 在 **`<你的 release keystore 路径>`**（仓库外，PKCS12，alias `camftp`，有效期 30 年），凭据在仓库根的 `keystore.properties`（密码是随机生成的，已 gitignore）。`app/build.gradle.kts` 缺这个文件就退化成未签名包，不影响 debug 构建。**备份这两样东西**，丢了就没法给已装用户升级
+7. **GitHub Release** ✅ tag `v0.1.0`，附签名 APK（`app-release.apk`，11.6 MB，v2 签名）
+8. **`openspec/`** ✅ 按用户要求 `git rm -r --cached openspec` + 加进 `.gitignore`（本地文件保留在磁盘上）
+9. **同批提交里还带了两个非 M4 的改动**（另一位 session / 用户改的，用户确认一起发）：
+   - `Config.kt`：默认账号 `旧默认账号` → **`camftp/123456`**（`docs/app-development.md` 同步改了）。注意：**已经装过的机器上 SharedPreferences 里仍是旧值**，除非在 UI 里改
+   - `activity_main.xml`：`fitsSystemWindows="true"`，修 targetSdk 36 强制 edge-to-edge 导致内容画到状态栏底下
+   - 这两个改动**没在真机上验过**（release 包也没装过：签名不同，装 release 得先卸载 debug，会清掉配置），第一次装 release 时留意一下
+10. **交付前自检**（文档 §11 逐条现状）：
    - `./gradlew test` 通过 ✅（7 个用例）
    - `./gradlew assembleDebug` 无错 ✅
    - 全工程 grep 不到 `MANAGE_EXTERNAL_STORAGE` / `WRITE_EXTERNAL_STORAGE` ✅
    - 控制端口默认 2121、被动端口默认 `32768-61000`，都能在 UI 改且持久化 ✅
    - 前台服务类型 `connectedDevice` + Manifest 权限 ✅
    - `FtpEngine.kt` 无 `android.*` import ✅
-   - README 有 §9 的 8 条坑 ⬜
-   - LICENSE + NOTICE 在仓库根目录 ⬜
+   - README 有 §9 的 8 条坑 ✅
+   - LICENSE + NOTICE 在仓库根目录 ✅
+   - release APK 已签名（`apksigner verify` 通过，v2 方案）✅
 
 ---
 
@@ -227,6 +226,7 @@ gradle :app:testDebugUnitTest --rerun        # 强制重跑（复现竞态用）
 $ip = (adb shell ip -4 -o addr show wlan0) -replace '.*inet ([0-9.]+)/.*','$1'
 curl.exe -sS --user camftp:123456 -T .\x.jpg "ftp://${ip}:2121/"              # 被动模式
 curl.exe -sS --user camftp:123456 --ftp-port - -T .\x.jpg "ftp://${ip}:2121/x.jpg"  # 主动模式
+# 账号密码以 App 里当前显示的为准（默认 2026-10-07 起是 camftp/123456，之前是 旧默认账号）
 adb shell ls -l /sdcard/DCIM/CamFtp/
 adb shell content query --uri content://media/external/images/media --projection _display_name:relative_path
 ```
@@ -247,7 +247,7 @@ adb shell input tap <centerX> <centerY>
 2. App 点启动，记下显示的 `地址`（实测 `10.129.14.x`）
 3. 相机：`网络` → `连接到FTP服务器` → `网络设定` → `创建配置文件` → `配置手动`
    - 无线：选手机热点；TCP/IP：自动
-   - FTP：服务器类型 `FTP`、地址=App 显示的、端口 `2121`、目标文件夹「**主文件夹**」、**PASV `ON`**、匿名 `OFF`、用户 旧默认账号
+   - FTP：服务器类型 `FTP`、地址=App 显示的、端口 `2121`、目标文件夹「**主文件夹**」、**PASV `ON`**、匿名 `OFF`、用户 / 密码 = App 里显示的（默认 `camftp` / `123456`；相机里还存着 旧默认账号 的话，改 App 或改相机都行）
 4. 回放 → 选一张 → `i` 菜单 → `选择上传(FTP)`
 5. 期望：通知变「已收 1 张」；App 事件列表出现 `✓ xxx.JPG → DCIM/CamFtp`；系统相册能看到原文件名
 6. 回归 A：相机 PASV 改 `OFF` 再传一张，必须也成功
@@ -260,7 +260,9 @@ adb shell input tap <centerX> <centerY>
 
 - **生图工具不可用**：`~/.pi/agent/models.json` 没有有效的 `sgra` provider，所以图标是手写矢量（`ic_launcher_foreground.xml` 相机+上传箭头 / `ic_launcher_background.xml` 深蓝底）。想换 AI 生成的图标先配 provider。
 - **git 代理陷阱**：全局 `http.proxy=127.0.0.1:7890` 指向没在跑的 v2rayN → https remote 一定失败。origin 已改成 SSH，别再改回 https，除非你确定代理开着。
-- **`openspec/` 是误提交**（见 §7.8）。
+- **`openspec/` 是误提交**，已从仓库移除（见 §7.8，本地文件还在）。
+- **签名凭据**：keystore `<你的 release keystore 路径>` + 仓库根 `keystore.properties`（都在版本控制外）。换机器开发时要把这两样复制过去。
+- **发布 APK 的下载地址**：<https://github.com/Mangome/camftp/releases/latest>
 - `.gitattributes` 已加（`gradlew` 强制 LF、`*.bat` CRLF）。`git add` 时那句 "LF will be replaced by CRLF" 是无害警告。
 - 手机相册里曾经有我塞的测试图（DSC_9001~9010、`camftp-selftest.jpg`），**已清干净**（含 MediaStore 行）。
 - 相机配置仍留在相机里（服务器地址 `10.129.14.x`），**手机热点关掉或网段变了就得重新填**（ColorOS 每次开热点的网段可能不同，所以 App 必须显示当前 IP —— 这正是 UI 第一屏那块大字的意义）。
