@@ -21,7 +21,7 @@
     <color name="cam_inverse_on_surface">#EEF2F5</color>
     <color name="cam_inverse_primary">#8FD9EF</color>
 
-    <!-- 警示卡底色（没开热点这种「前提条件不满足」，跟入库失败区分开） -->
+    <!-- 错误态容器（映射 colorErrorContainer 槽位）：当前界面没有大色块用它了，留着给组件的错误态 -->
     <color name="cam_error_container">#FBE4E1</color>
     <color name="cam_on_error_container">#7A1B15</color>
 

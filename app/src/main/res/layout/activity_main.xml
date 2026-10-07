@@ -55,32 +55,8 @@
             android:textSize="14sp"
             android:visibility="gone" />
 
-        <!-- 2. 没热点时的高亮提示：相机传图的前提就这一条，值得抢眼（整屏唯一的错误色用法）。
-             按钮在卡外面：热点开着时它也不消失（关掉 / 换密码都从这儿进） -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/alertCard"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:visibility="gone"
-            app:cardBackgroundColor="?attr/colorErrorContainer"
-            app:cardCornerRadius="20dp"
-            app:cardElevation="0dp">
-
-            <TextView
-                android:id="@+id/alertTitle"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:paddingStart="20dp"
-                android:paddingTop="18dp"
-                android:paddingEnd="20dp"
-                android:paddingBottom="18dp"
-                android:text="@string/alert_no_hotspot"
-                android:textColor="?attr/colorOnErrorContainer"
-                android:textSize="19sp"
-                android:textStyle="bold" />
-        </com.google.android.material.card.MaterialCardView>
-
+        <!-- 2. 热点设置入口：热点开着时也常驻（关掉 / 换密码都从这儿进），不跟状态一起隐显。
+             没热点时的提示在状态行上（status_need_hotspot），不再单独出错误色卡 -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/hotspotButton"
             style="@style/Widget.Material3.Button.TonalButton"

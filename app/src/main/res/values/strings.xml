@@ -2,12 +2,13 @@
 <resources>
     <string name="app_name">CamFtp</string>
 
-    <!-- 状态与主开关 -->
+    <!-- 状态行（左上角）：没热点时说的不是「没在收」而是「缺哪一步」 -->
     <string name="status_stopped">未接收</string>
     <string name="status_running">正在接收</string>
+    <string name="status_need_hotspot">需要开启热点</string>
     <!-- 服务状态下面的第二行 = 相机连接状态（唯一实证是 FTP 控制连接数）+ 已收到张数 -->
     <string name="status_camera_online">相机已连接 · 已收到 %1$d 张</string>
-    <string name="status_camera_waiting">等相机连上来 · 已收到 %1$d 张</string>
+    <string name="status_camera_waiting">等待相机连接 · 已收到 %1$d 张</string>
     <string name="status_camera_offline">相机没连着 · 上次连接 %1$s · 已收到 %2$d 张</string>
 
     <string name="channel_name">FTP 接收</string>
@@ -27,9 +28,8 @@
     <string name="field_password">密码</string>
     <string name="ip_hotspot_tag">热点</string>
     <string name="open_hotspot">打开热点设置</string>
-    <string name="alert_no_hotspot">需要开启热点</string>
 
-    <!-- 前提条件（热点）没满足的警示卡：只留一句状态 + 按钮，不解释观察到了什么 -->
+    <!-- 跳设置失败时的兜底提示 -->
     <string name="hotspot_failed">打开失败，请手动打开：设置 → 便携式热点</string>
 
     <!-- 高级设置 -->

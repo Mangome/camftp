@@ -94,7 +94,7 @@ class MainActivity : AppCompatActivity() {
         // 否则地址和「热点」标记会停在旧状态，等下次回前台才对上
         if (wasRunning != state.running) refreshBestAddress()
 
-        binding.statusText.setText(if (state.running) R.string.status_running else R.string.status_stopped)
+        // 状态行文字由 updateCameraHint() 唯一负责（它才知道有没有热点），这里只管第二行
         binding.statusDetail.isVisible = state.running
         if (state.running) binding.statusDetail.text = cameraStatusText(state)
         binding.statusDot.backgroundTintList = ColorStateList.valueOf(
@@ -155,11 +155,18 @@ class MainActivity : AppCompatActivity() {
         val hotspotIface = bestIface?.takeIf { it.isHotspot }
         val anonymous = binding.anonymousSwitch.isChecked
 
-        // 前提条件：相机只能连热点。没热点就把「需要开启热点」顶到最上面，别让用户对着一堆用不上的读数找原因
-        binding.alertCard.isVisible = hotspotIface == null
+        // 前提条件：相机只能连热点。没热点时状态行说的就是「需要开启热点」
+        // （原来另有一张错误色警示卡，跟这行是同一件事，已删）
+        binding.statusText.setText(
+            when {
+                hotspotIface == null -> R.string.status_need_hotspot
+                running -> R.string.status_running
+                else -> R.string.status_stopped
+            }
+        )
 
         // 不在热点上：相机用不了这个地址，就别把 IP 摆成主角
-        // （「打开热点设置」按钮常驻在卡下面，不受这里影响）
+        // （「打开热点设置」按钮常驻在状态行下面，不受这里影响）
         binding.readingBlock.isVisible = hotspotIface != null
         binding.noIpBlock.isVisible = hotspotIface == null
         binding.hotspotTag.isVisible = hotspotIface != null
