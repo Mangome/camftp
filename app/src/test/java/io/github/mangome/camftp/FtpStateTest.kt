@@ -25,6 +25,8 @@ class FtpStateTest {
 
         FtpState.addEvent(FtpState.Event("DSC_0001.JPG", ok = true, detail = "DCIM/CamFtp"))
         assertEquals(before + 1, FtpState.snapshot.value.received)
+        // UI 每行都要显示时间，缺了就是列表里一列 1970
+        assertTrue(FtpState.snapshot.value.events.first().at > 0)
     }
 
     @Test

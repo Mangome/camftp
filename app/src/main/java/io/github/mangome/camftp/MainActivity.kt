@@ -33,7 +33,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.Locale
 
 /**
  * 单屏：状态 / 相机里要填的读数 / 高级设置（折叠）/ 最近收到。
@@ -118,6 +120,13 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
+    /**
+     * 事件行的时间戳用固定 24 小时制 [SimpleDateFormat]，不走 `android.text.format.DateFormat`：
+     * 12/24 小时制在 ROM 上的处理不一致（§5 的字体度量那个坑同源）。到秒 —— 连拍几张都落在
+     * 同一分钟里，只到分钟分不出先后；列表只有 10 条、看的是「刚刚收到没」，跨零点看不出是哪天
+     */
+    private val eventTime = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+
     private fun renderEvents(events: List<FtpState.Event>) {
         binding.eventEmpty.isVisible = events.isEmpty()
         binding.eventList.isVisible = events.isNotEmpty()
@@ -130,6 +139,10 @@ class MainActivity : AppCompatActivity() {
         events.forEachIndexed { i, e ->
             if (i > 0) sb.append("\n")
             var start = sb.length
+            sb.append(eventTime.format(Date(e.at)))
+            sb.append("  ")
+            sb.setSpan(ForegroundColorSpan(dim), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            start = sb.length
             sb.append(if (e.ok) "✓ " else "✗ ")
             sb.setSpan(ForegroundColorSpan(if (e.ok) ok else fail), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             start = sb.length

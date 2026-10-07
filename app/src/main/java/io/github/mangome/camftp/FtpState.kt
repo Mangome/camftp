@@ -11,8 +11,14 @@ import kotlinx.coroutines.flow.update
  */
 object FtpState {
 
-    /** [counts] = false 的事件（自检图）不进「已收到 N 张」的计数 */
-    data class Event(val name: String, val ok: Boolean, val detail: String = "", val counts: Boolean = true)
+    /** [counts] = false 的事件（自检图）不进「已收到 N 张」的计数；[at] = 入库时刻，UI 每行显示 */
+    data class Event(
+        val name: String,
+        val ok: Boolean,
+        val detail: String = "",
+        val counts: Boolean = true,
+        val at: Long = System.currentTimeMillis(),
+    )
 
     data class Snapshot(
         val running: Boolean = false,

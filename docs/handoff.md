@@ -116,6 +116,8 @@ app/src/test/java/.../NetworkInfoTest.kt 5 个：热点网卡识别（小米 wla
 
 21. **不熄屏（前台常亮）用 layout 的 `android:keepScreenOn`，不写 `FLAG_KEEP_SCREEN_ON` 代码**：`activity_main.xml` 根 ScrollView 上一个属性，系统按「窗口可见」判定 —— 退到后台 / 息屏后自动失效，不用在 `onResume`/`onPause` 里配对加清标志（配对漏一边就是后台把用户屏幕焊死）。它跟服务是两件事：**息屏接收照旧**（前台服务管），常亮只管「App 打开着的时候别灭」。
 
+22. **「最近收到」每条是 `HH:mm:ss  ✓ 文件名  详情`**：时间戳存在 `FtpState.Event.at`（默认参数 = 入库时刻，两条调用点都不用传），到秒 —— 连拍几张都落在同一分钟里，只到分钟分不出先后。固定 24 小时制、用 `SimpleDateFormat` 而不是 `android.text.format.DateFormat`（12/24 小时制的处理在 ROM 上不一致，跟 §5 行高那个坑同源）。不显示日期：列表只留 10 条、看的是「刚刚收到没」，跨零点看不出是哪天 —— 真要分辨再补「非今天则带日期」。（排序：编号插在末尾是为了不改 §3.20 那批交叉引用。）
+
 ---
 
 ## 4. 协议与平台事实（有出处，改配置时别推翻）
@@ -188,6 +190,7 @@ app/src/test/java/.../NetworkInfoTest.kt 5 个：热点网卡识别（小米 wla
 - 大字读数不截断（小米 34sp 行高 0.75× 那个坑）：`addressValue` 框 149px、墨迹 890..974（上下各留 30~35px，不再贴着框边）
 - **没热点时的引导**（真机 2026-10-07，手机连着家里 Wi-Fi、热点没开）：状态行「需要开启热点」（旧版这里是「未接收」+ 顶部错误色卡）+ 状态行下常驻「打开热点设置」；读数卡不显示那个用不上的 IP，兜底显示「当前网卡：192.168.1.103(wlan0)」（HyperOS 3 复验，截图 `temp/camftp-nohotspot.png`）
 - **相机连接状态**：`开始接收` 后显示「等待相机连接 · 已收到 0 张」；电脑裸 TCP 连 `2121`（只发 `USER`、未登录）2 秒内变成「相机已连接 · 已收到 0 张」；断开后变「相机没连着 · 上次连接 17:41 · 已收到 0 张」。服务内测：用 `adb shell input tap` 点按钮 + PowerShell `TcpClient` 手动开连接（App 的 FGS 不 exported，`am start-foreground-service` 会被拒）
+- **「最近收到」每条带时间**（ColorOS 机，2026-10-07 20:06）：列表读出 `20:06:00 ✓ DSC_1795.NEF DCIM/CamFtp` / `20:05:58 ✓ 测试图 DCIM/CamFtp`，时间与入库时刻一致，与文件名/详情同行不折行（截图 `temp/events-time.png`）。注：这台机上装 debug 包会被拒（`INSTALL_FAILED_UPDATE_INCOMPATIBLE`，签名不同），走的是 release 包
 
 ### 未验证 / 已知风险（接手时先知道）
 
