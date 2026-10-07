@@ -49,6 +49,7 @@ android {
 
     buildFeatures {
         viewBinding = true
+        buildConfig = true   // 「关于」里显示 versionName
     }
 
     // Apache FtpServer / MINA 各自带 META-INF/DEPENDENCIES、LICENSE、NOTICE，会和在一起炸 mergeJavaResource

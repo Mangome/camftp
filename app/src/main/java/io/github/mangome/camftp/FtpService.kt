@@ -28,6 +28,7 @@ class FtpService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        HotspotWatch.attach(this)   // 服务常驻时也得盯着热点：用户关热点 = 停止接收
         getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(
                 CHANNEL_ID,
@@ -58,6 +59,13 @@ class FtpService : Service() {
 
     private fun start() {
         if (engine != null) return
+
+        // 热点关着就不该有服务（被 START_STICKY 拉回来时可能已经是这个状态）
+        if (!HotspotWatch.canReceive(this)) {
+            log.info("没热点，不启动")
+            stopSelf()
+            return
+        }
 
         Config.load(this)
         val port = Config.port

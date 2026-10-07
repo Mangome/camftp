@@ -2,7 +2,7 @@
 <!-- targetSdk 36 → 系统强制 edge-to-edge，内容会画到状态栏/导航栏底下。
      fitsSystemWindows 把系统栏 insets 变成 root 的 padding（内边距要留在子 View 上，
      否则 View.computeSystemWindowInsets 认为该边已有 padding 就不再补 inset）。
-     结构：状态 → 相机读数卡 → 高级设置（折叠） → 最近收到 -->
+     结构：状态 + 热点设置入口 → 相机读数卡 → 高级设置（折叠） → 最近收到 -->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
@@ -19,7 +19,7 @@
         android:paddingEnd="20dp"
         android:paddingBottom="32dp">
 
-        <!-- 1. 状态 + 主开关 -->
+        <!-- 1. 状态 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -55,8 +55,8 @@
             android:textSize="14sp"
             android:visibility="gone" />
 
-        <!-- 2. 前提条件没满足（热点没开 / 不在热点上）：放在主按钮之上，先看到问题再动手。
-             这是整屏唯一用错误色的地方 —— 相机传图的前提就这一条，值得抢眼 -->
+        <!-- 2. 没热点时的高亮提示：相机传图的前提就这一条，值得抢眼（整屏唯一的错误色用法）。
+             按钮在卡外面：热点开着时它也不消失（关掉 / 换密码都从这儿进） -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/alertCard"
             android:layout_width="match_parent"
@@ -67,40 +67,29 @@
             app:cardCornerRadius="20dp"
             app:cardElevation="0dp">
 
-            <LinearLayout
+            <TextView
+                android:id="@+id/alertTitle"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="20dp">
-
-                <TextView
-                    android:id="@+id/alertTitle"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/alert_no_hotspot"
-                    android:textColor="?attr/colorOnErrorContainer"
-                    android:textSize="19sp"
-                    android:textStyle="bold" />
-
-                <!-- 这里的事件态里它是唯一的主色按钮：按钮会比「开始接收」高一档，热点没开时那就该先点它 -->
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/hotspotButton"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:text="@string/open_hotspot" />            </LinearLayout>
+                android:paddingStart="20dp"
+                android:paddingTop="18dp"
+                android:paddingEnd="20dp"
+                android:paddingBottom="18dp"
+                android:text="@string/alert_no_hotspot"
+                android:textColor="?attr/colorOnErrorContainer"
+                android:textSize="19sp"
+                android:textStyle="bold" />
         </com.google.android.material.card.MaterialCardView>
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/toggleButton"
+            android:id="@+id/hotspotButton"
+            style="@style/Widget.Material3.Button.TonalButton"
             android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:layout_marginTop="18dp"
-            android:text="@string/start"
-            android:textSize="17sp"
-            app:cornerRadius="18dp" />
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/open_hotspot" />
 
-        <!-- 2. 相机里要填的那串字：全屏唯一的读数，也是视觉主角 -->
+        <!-- 3. 相机里要填的那串字：全屏唯一的读数，也是视觉主角 -->
         <com.google.android.material.card.MaterialCardView
             style="?attr/materialCardViewOutlinedStyle"
             android:layout_width="match_parent"
@@ -114,36 +103,14 @@
                 android:orientation="vertical"
                 android:padding="20dp">
 
-                <LinearLayout
+                <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:letterSpacing="0.06"
-                        android:text="@string/section_camera_title"
-                        android:textColor="?attr/colorOnSurfaceVariant"
-                        android:textSize="13sp"
-                        android:textStyle="bold" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/copyButton"
-                        style="?attr/borderlessButtonStyle"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:insetBottom="0dp"
-                        android:insetTop="0dp"
-                        android:minHeight="0dp"
-                        android:text="@string/copy"
-                        android:textSize="14sp"
-                        app:icon="@drawable/ic_copy"
-                        app:iconPadding="6dp"
-                        app:iconSize="18dp" />
-                </LinearLayout>
+                    android:letterSpacing="0.06"
+                    android:text="@string/section_camera_title"
+                    android:textColor="?attr/colorOnSurfaceVariant"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
 
                 <!-- 有地址：念给相机听的那几行 -->
                 <LinearLayout
@@ -299,7 +266,7 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- 3. 高级设置：低频操作，默认收起 -->
+        <!-- 4. 高级设置：低频操作，默认收起 -->
         <com.google.android.material.card.MaterialCardView
             style="?attr/materialCardViewOutlinedStyle"
             android:layout_width="match_parent"
@@ -370,22 +337,6 @@
                     </com.google.android.material.textfield.TextInputLayout>
 
                     <com.google.android.material.textfield.TextInputLayout
-                        android:id="@+id/passiveField"
-                        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="14dp"
-                        android:hint="@string/label_passive">
-
-                        <com.google.android.material.textfield.TextInputEditText
-                            android:id="@+id/passiveInput"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:importantForAutofill="no"
-                            android:inputType="text" />
-                    </com.google.android.material.textfield.TextInputLayout>
-
-                    <com.google.android.material.textfield.TextInputLayout
                         android:id="@+id/folderField"
                         style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
                         android:layout_width="match_parent"
@@ -450,7 +401,7 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- 4. 最近收到：日志，视觉上最弱 -->
+        <!-- 5. 最近收到：日志，视觉上最弱 -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -489,5 +440,20 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="14dp"
             android:text="@string/self_test" />
+
+        <!-- 6. 关于：版权 / 版本 / 开源信息，视觉最弱的一行字 -->
+        <TextView
+            android:id="@+id/aboutButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:background="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            android:paddingTop="12dp"
+            android:paddingBottom="12dp"
+            android:text="@string/about"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:textSize="13sp" />
     </LinearLayout>
 </ScrollView>

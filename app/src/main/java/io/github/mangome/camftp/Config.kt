@@ -11,7 +11,6 @@ object Config {
     const val PREFS = "camftp"
 
     private const val KEY_PORT = "port"
-    private const val KEY_PASSIVE_PORTS = "passivePorts"
     private const val KEY_USER = "user"
     private const val KEY_PASSWORD = "password"
     private const val KEY_FOLDER = "folder"
@@ -26,28 +25,28 @@ object Config {
     const val MAX_PORT = 65535
 
     var port: Int = Profiles.NIKON_Z50II.controlPort
-    var passivePorts: String = Profiles.NIKON_Z50II.passivePorts.orEmpty()
+
+    /** 被动端口范围跟着机型走，不给用户改（相机侧不会填这个，改坏了只会白断连） */
+    val passivePorts: String = Profiles.NIKON_Z50II.passivePorts.orEmpty()
     var user: String = DEFAULT_USER
     var password: String = DEFAULT_PASSWORD
     var folder: String = DEFAULT_FOLDER
 
-    /** 允许匿名登录：相机侧开「匿名登录」时用，不校验用户名密码（默认关） */
-    var anonymous: Boolean = false
+    /** 允许匿名登录：相机侧开「匿名登录」时用，不校验用户名密码（默认开，相机上少填两项） */
+    var anonymous: Boolean = true
 
     fun load(context: Context) {
         val p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         port = p.getInt(KEY_PORT, Profiles.NIKON_Z50II.controlPort)
-        passivePorts = p.getString(KEY_PASSIVE_PORTS, Profiles.NIKON_Z50II.passivePorts) ?: ""
         user = p.getString(KEY_USER, DEFAULT_USER) ?: DEFAULT_USER
         password = p.getString(KEY_PASSWORD, DEFAULT_PASSWORD) ?: DEFAULT_PASSWORD
         folder = p.getString(KEY_FOLDER, DEFAULT_FOLDER) ?: DEFAULT_FOLDER
-        anonymous = p.getBoolean(KEY_ANONYMOUS, false)
+        anonymous = p.getBoolean(KEY_ANONYMOUS, true)
     }
 
     fun save(
         context: Context,
         newPort: Int,
-        newPassivePorts: String,
         newUser: String,
         newPassword: String,
         newFolder: String,
@@ -55,25 +54,12 @@ object Config {
     ) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putInt(KEY_PORT, newPort)
-            .putString(KEY_PASSIVE_PORTS, newPassivePorts)
             .putString(KEY_USER, newUser)
             .putString(KEY_PASSWORD, newPassword)
             .putString(KEY_FOLDER, newFolder)
             .putBoolean(KEY_ANONYMOUS, newAnonymous)
             .apply()
         load(context)
-    }
-
-    /** 被动端口范围：空 = 不限制（不推荐）；否则必须是 "a-b" 且 a<b */
-    fun passivePortsError(value: String): String? {
-        if (value.isBlank()) return null
-        val parts = value.trim().split('-')
-        if (parts.size != 2) return "格式：32768-61000"
-        val from = parts[0].trim().toIntOrNull() ?: return "格式：32768-61000"
-        val to = parts[1].trim().toIntOrNull() ?: return "格式：32768-61000"
-        if (from !in MIN_PORT..MAX_PORT || to !in MIN_PORT..MAX_PORT) return "端口要在 $MIN_PORT-$MAX_PORT 之间"
-        if (from >= to) return "起始端口要小于结束端口"
-        return null
     }
 
     fun portError(value: String): String? {

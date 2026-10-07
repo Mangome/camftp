@@ -1,10 +1,7 @@
 package io.github.mangome.camftp
 
 import android.Manifest
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Intent
-import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.graphics.Bitmap
@@ -12,6 +9,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Typeface
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -20,6 +18,7 @@ import android.text.Spanned
 import android.text.format.DateFormat
 import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -37,7 +36,8 @@ import java.io.File
 import java.util.Date
 
 /**
- * 单屏：状态 / 主开关 / 相机里要填的读数 / 高级设置（折叠）/ 最近收到。
+ * 单屏：状态 / 相机里要填的读数 / 高级设置（折叠）/ 最近收到。
+ * 没有开始/停止按钮：接收跟着热点走（见 [HotspotWatch]），关热点就是停止。
  * 不做多页面、不做 Compose（文档 §5.2）。
  */
 class MainActivity : AppCompatActivity() {
@@ -46,9 +46,6 @@ class MainActivity : AppCompatActivity() {
     private var running = false
     private var bestIface: NetworkInfo.Iface? = null
     private var ifaces: List<NetworkInfo.Iface> = emptyList()
-
-    /** 调试构建（adb 装的 debug APK）：放行「热点没开也允许开始接收」，给家里 Wi-Fi 直连 2121 跑回归用 */
-    private val debuggable by lazy { (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0 }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -59,8 +56,6 @@ class MainActivity : AppCompatActivity() {
         fillConfigFields()
         setAdvancedOpen(savedInstanceState?.getBoolean(KEY_ADVANCED) == true)
 
-        binding.toggleButton.setOnClickListener { toggleService() }
-        binding.copyButton.setOnClickListener { copyCameraHint() }
         binding.saveButton.setOnClickListener { saveConfig() }
         binding.anonymousSwitch.setOnCheckedChangeListener { _, checked ->
             binding.userField.isEnabled = !checked   // 匿名登录时用户名密码用不上
@@ -69,11 +64,14 @@ class MainActivity : AppCompatActivity() {
         }
         binding.hotspotButton.setOnClickListener { openHotspotSettings() }
         binding.selfTestButton.setOnClickListener { runSelfTest() }
+        binding.aboutButton.setOnClickListener { showAbout() }
         binding.advancedHeader.setOnClickListener { setAdvancedOpen(!binding.advancedBody.isVisible) }
 
         lifecycleScope.launch {
             FtpState.snapshot.collect { render(it) }
         }
+        HotspotWatch.attach(this)
+        ensureNotificationPermission()   // 常驻通知是「正在接收」的唯一指示，第一次进来就问
         refreshBestAddress()
     }
 
@@ -82,22 +80,26 @@ class MainActivity : AppCompatActivity() {
         outState.putBoolean(KEY_ADVANCED, binding.advancedBody.isVisible)
     }
 
-    // 开热点是 App 外面的事，回到前台时重新枚举网卡
+    // 开热点是 App 外面的事，回到前台时重新枚举网卡 + 把服务对齐到热点状态
     override fun onResume() {
         super.onResume()
         refreshBestAddress()
+        HotspotWatch.sync(this)   // 热点开着没在收（后台没起成服务、进程刚回来）就在这儿补上
     }
 
     private fun render(state: FtpState.Snapshot) {
+        val wasRunning = running
         running = state.running
+        // 服务起停多半是热点变了引起的（用户在设置里关的热点 / 热点超时自己关）：网卡重扫一遍，
+        // 否则地址和「热点」标记会停在旧状态，等下次回前台才对上
+        if (wasRunning != state.running) refreshBestAddress()
+
         binding.statusText.setText(if (state.running) R.string.status_running else R.string.status_stopped)
         binding.statusDetail.isVisible = state.running
         if (state.running) binding.statusDetail.text = cameraStatusText(state)
         binding.statusDot.backgroundTintList = ColorStateList.valueOf(
             ContextCompat.getColor(this, if (state.running) R.color.cam_status_ok else R.color.cam_status_off)
         )
-
-        updateToggle()
 
         renderEvents(state.events)
         // 本进程内已经有成功入库（真图或自检图）→ 入库链路已被证明，自检按钮收起来
@@ -114,27 +116,6 @@ class MainActivity : AppCompatActivity() {
             DateFormat.getTimeFormat(this).format(Date(state.lastConnectAt)),
             state.received,
         )
-    }
-
-    /**
-     * 主按钮的份量跟着「现在最该做什么」走：
-     *  - 运行中 → 「停止接收」可点、容器色，不抢眼（停永远要能停）
-     *  - 热点开着 → 「开始接收」主色，唯一的高对比按钮
-     *  - 热点没开 → 「开始接收」置灰：相机根本连不上，出口在警示卡的「打开热点设置」。
-     *    测试用的「Wi-Fi 直连 2121」不靠这个按钮，靠调试构建（[debuggable]）放行
-     */
-    private fun updateToggle() {
-        val starting = !running
-        val hotspot = bestIface?.isHotspot == true
-        binding.toggleButton.setText(if (running) R.string.stop else R.string.start)
-        binding.toggleButton.isEnabled = !starting || hotspot || debuggable
-        binding.toggleButton.alpha = if (binding.toggleButton.isEnabled) 1f else 0.45f
-        val emphasized = starting && hotspot
-        val bgAttr = if (emphasized) MaterialR.attr.colorPrimary else MaterialR.attr.colorSecondaryContainer
-        val fgAttr = if (emphasized) MaterialR.attr.colorOnPrimary else MaterialR.attr.colorOnSecondaryContainer
-        binding.toggleButton.backgroundTintList =
-            ColorStateList.valueOf(MaterialColors.getColor(binding.toggleButton, bgAttr))
-        binding.toggleButton.setTextColor(MaterialColors.getColor(binding.toggleButton, fgAttr))
     }
 
     private fun renderEvents(events: List<FtpState.Event>) {
@@ -174,13 +155,13 @@ class MainActivity : AppCompatActivity() {
         val hotspotIface = bestIface?.takeIf { it.isHotspot }
         val anonymous = binding.anonymousSwitch.isChecked
 
-        // 前提条件：相机只能连热点。没热点就把「打开热点设置」顶到最上面，别让用户对着一堆用不上的读数找原因
+        // 前提条件：相机只能连热点。没热点就把「需要开启热点」顶到最上面，别让用户对着一堆用不上的读数找原因
         binding.alertCard.isVisible = hotspotIface == null
 
-        // 不在热点上时那个 IP 相机根本用不上，不摆成大字，复制也收起来
+        // 不在热点上：相机用不了这个地址，就别把 IP 摆成主角
+        // （「打开热点设置」按钮常驻在卡下面，不受这里影响）
         binding.readingBlock.isVisible = hotspotIface != null
         binding.noIpBlock.isVisible = hotspotIface == null
-        binding.copyButton.isVisible = hotspotIface != null
         binding.hotspotTag.isVisible = hotspotIface != null
         binding.localAddresses.isVisible = hotspotIface == null && ifaces.isNotEmpty()
         if (hotspotIface == null && ifaces.isNotEmpty()) {
@@ -197,7 +178,6 @@ class MainActivity : AppCompatActivity() {
         binding.userRow.isVisible = !anonymous
         binding.passwordRow.isVisible = !anonymous
         binding.anonymousNote.isVisible = anonymous
-        updateToggle()   // 热点开关状态直接决定主按钮的份量
     }
 
     private fun portText() = binding.portInput.text.toString().ifBlank { Config.port.toString() }
@@ -207,43 +187,8 @@ class MainActivity : AppCompatActivity() {
         binding.advancedChevron.animate().rotation(if (open) 180f else 0f).setDuration(160).start()
     }
 
-    private fun toggleService() {
-        if (running) {
-            startService(Intent(this, FtpService::class.java).setAction(FtpService.ACTION_STOP))
-        } else {
-            ensureNotificationPermission()
-            ContextCompat.startForegroundService(this, Intent(this, FtpService::class.java))
-            // 服务起来前先给个说法，别让按钮看起来没反应
-            binding.statusText.setText(R.string.status_starting)
-            binding.statusDetail.isVisible = false
-        }
-    }
-
-    private fun copyCameraHint() {
-        val iface = bestIface
-        if (iface == null) {
-            snackbar(getString(R.string.camera_no_ip))
-            return
-        }
-        val text = if (binding.anonymousSwitch.isChecked) {
-            getString(R.string.copy_all_anonymous, iface.ip, portText())
-        } else {
-            getString(
-                R.string.copy_all,
-                iface.ip,
-                portText(),
-                binding.userInput.text.toString().ifBlank { Config.user },
-                binding.passwordInput.text.toString().ifBlank { Config.password },
-            )
-        }
-        getSystemService(ClipboardManager::class.java)
-            .setPrimaryClip(ClipData.newPlainText(getString(R.string.app_name), text))
-        snackbar(getString(R.string.copied))
-    }
-
     private fun saveConfig() {
         val portText = binding.portInput.text.toString().trim()
-        val passiveText = binding.passiveInput.text.toString().trim()
         val user = binding.userInput.text.toString().trim()
         val password = binding.passwordInput.text.toString().trim()
         val folder = binding.folderInput.text.toString().trim()
@@ -251,7 +196,6 @@ class MainActivity : AppCompatActivity() {
 
         var bad: TextInputLayout? = null
         Config.portError(portText)?.let { binding.portField.error = it; bad = binding.portField }
-        Config.passivePortsError(passiveText)?.let { binding.passiveField.error = it; bad = bad ?: binding.passiveField }
         if (!anonymous) {
             if (user.isEmpty()) { binding.userField.error = getString(R.string.field_required); bad = bad ?: binding.userField }
             if (password.isEmpty()) { binding.passwordField.error = getString(R.string.field_required); bad = bad ?: binding.passwordField }
@@ -262,7 +206,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        Config.save(this, portText.toInt(), passiveText, user, password, folder, anonymous)
+        Config.save(this, portText.toInt(), user, password, folder, anonymous)
         Config.load(this)
         fillConfigFields()
 
@@ -335,6 +279,22 @@ class MainActivity : AppCompatActivity() {
         return bmp
     }
 
+    /** 关于：版权 / 版本 / 开源信息，源码走系统浏览器 */
+    private fun showAbout() {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.about)
+            .setMessage(getString(R.string.about_body, BuildConfig.VERSION_NAME))
+            .setPositiveButton(R.string.about_close, null)
+            .setNeutralButton(R.string.about_source) { _, _ -> openRepository() }
+            .show()
+    }
+
+    private fun openRepository() {
+        val url = getString(R.string.about_source_url)
+        val opened = runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }.isSuccess
+        if (!opened) snackbar(getString(R.string.about_source_failed, url))
+    }
+
     private fun ensureNotificationPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
@@ -346,7 +306,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun fillConfigFields() {
         binding.portInput.setText(Config.port.toString())
-        binding.passiveInput.setText(Config.passivePorts)
         binding.userInput.setText(Config.user)
         binding.passwordInput.setText(Config.password)
         binding.folderInput.setText(Config.folder)

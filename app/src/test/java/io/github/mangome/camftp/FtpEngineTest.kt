@@ -194,10 +194,10 @@ class FtpEngineTest {
     }
 
     @Test
-    fun `匿名登录默认被拒（开关关着时 anonymous 不能当普通账号）`() {
+    fun `匿名开关关着时 anonymous 不能当普通账号`() {
         val client = connect()
         try {
-            assertFalse("匿名登录默认是关的，不该放行", client.login("anonymous", "x@y.com"))
+            assertFalse("开关关着就不该放行", client.login("anonymous", "x@y.com"))
         } finally {
             client.disconnect()
         }
