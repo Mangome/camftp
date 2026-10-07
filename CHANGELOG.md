@@ -2,7 +2,7 @@
 
 本项目遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased]
+## [0.1.4] — 2026-10-07
 
 ### 新增
 
@@ -11,6 +11,10 @@
 ### 修复
 
 - **ColorOS 上开了热点却显示「需要开启热点」（0.1.3 引入的回归）**：`ap0` 这类**只可能是热点**的网卡名不再跟「正在连 Wi-Fi 的那张卡」比对 —— ColorOS 会把自己热点那张卡也报进 Wi-Fi 类型的网络里，一律比对会把热点自己误杀；`wlan2` 这种「热点和 STA 都可能叫」的名字照旧比对
+
+### 变更
+
+- 三处文案改得更直白：「相机没连着」改成「**相机已断开**」、「开热点后自动开始接收，地址显示在这里」改成「**打开热点以获取 FTP 服务器 IP 信息**」、「相机上也选匿名登录」改成「**相机设置匿名登录**」
 
 ## [0.1.3] — 2026-10-07
 
@@ -87,6 +91,7 @@
 - 热点需要手动开（App 只能跳转到系统热点设置页）
 - 相机侧「目标文件夹」建议选「主文件夹」
 
+[0.1.4]: https://github.com/Mangome/camftp/releases/tag/v0.1.4
 [0.1.3]: https://github.com/Mangome/camftp/releases/tag/v0.1.3
 [0.1.2]: https://github.com/Mangome/camftp/releases/tag/v0.1.2
 [0.1.1]: https://github.com/Mangome/camftp/releases/tag/v0.1.1
