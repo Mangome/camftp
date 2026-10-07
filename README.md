@@ -1,6 +1,10 @@
 # CamFtp · 相机 FTP 接收
 
-**安卓手机 = FTP 服务器，相机拍完直接进手机相册。** 不用云、不用电脑、不用 SnapBridge：相机连手机热点，回放 → 上传，照片按原名落到系统相册（可直接发微信）。
+**安卓手机 = FTP 服务器，相机拍完直接进手机相册。** 不用云、不用电脑、不用 SnapBridge：相机连手机热点，回放 → 上传，照片按原名落到系统相册。
+
+<p align="center">
+  <img width="446" height="958" alt="PixPin_2026-10-07_21-39-36" src="https://github.com/user-attachments/assets/2ae6cff7-23b0-47a1-a142-14f8450f458d" />
+</p>
 
 [下载 APK](https://github.com/Mangome/camftp/releases/latest) · Android 10+（minSdk 29）· Apache-2.0
 
