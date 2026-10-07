@@ -67,7 +67,7 @@ class FtpService : Service() {
         // 先挂上前台，避免 startForegroundService 的 5 秒限制；起不来再降级退出
         startForeground(
             NOTIFICATION_ID,
-            buildNotification(getString(R.string.state_starting)),
+            buildNotification(getString(R.string.notification_starting)),
             ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE,
         )
 
@@ -108,7 +108,9 @@ class FtpService : Service() {
 
     private fun updateNotification() {
         val s = FtpState.snapshot.value
-        val text = getString(R.string.state_running, s.port, s.received)
+        // IP 每次重新枚举（只在启动/收到图时调用，频率很低），热点换网段也能跟上
+        val ip = NetworkInfo.preferred()?.ip ?: getString(R.string.ip_unknown)
+        val text = getString(R.string.notification_received, ip, s.port, s.received)
         runCatching {
             NotificationManagerCompat.from(this).notify(NOTIFICATION_ID, buildNotification(text))
         }

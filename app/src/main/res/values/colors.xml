@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 浅色：冷灰底 + 信号青。刻意避开通用模板配色（默认 M3 紫、暖米色、酸绿）。 -->
+<resources>
+    <color name="cam_primary">#0E6E8A</color>
+    <color name="cam_on_primary">#FFFFFF</color>
+    <color name="cam_secondary_container">#D5E6EB</color>
+    <color name="cam_on_secondary_container">#0A4757</color>
+
+    <color name="cam_background">#F5F6F8</color>
+    <color name="cam_on_background">#14181D</color>
+    <color name="cam_surface">#FFFFFF</color>
+    <color name="cam_on_surface">#14181D</color>
+    <color name="cam_surface_variant">#ECEFF2</color>
+    <color name="cam_on_surface_variant">#5C6672</color>
+    <color name="cam_surface_container">#ECEFF2</color>
+    <color name="cam_surface_container_high">#E5E9ED</color>
+    <color name="cam_outline">#BFC7CF</color>
+    <color name="cam_outline_variant">#E2E6EB</color>
+
+    <color name="cam_inverse_surface">#1B2229</color>
+    <color name="cam_inverse_on_surface">#EEF2F5</color>
+    <color name="cam_inverse_primary">#8FD9EF</color>
+
+    <!-- 语义色：运行中的绿点 / 停止的灰点 / 入库失败的叉 -->
+    <color name="cam_status_ok">#10793C</color>
+    <color name="cam_status_off">#8B939E</color>
+    <color name="cam_status_error">#B3261E</color>
+</resources>

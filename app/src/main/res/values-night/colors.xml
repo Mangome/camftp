@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="cam_primary">#5FC6E3</color>
+    <color name="cam_on_primary">#00323F</color>
+    <color name="cam_secondary_container">#17414E</color>
+    <color name="cam_on_secondary_container">#BEE6F0</color>
+
+    <color name="cam_background">#0E1114</color>
+    <color name="cam_on_background">#E7EAEE</color>
+    <color name="cam_surface">#171B20</color>
+    <color name="cam_on_surface">#E7EAEE</color>
+    <color name="cam_surface_variant">#22282E</color>
+    <color name="cam_on_surface_variant">#9AA4B0</color>
+    <color name="cam_surface_container">#22282E</color>
+    <color name="cam_surface_container_high">#272E35</color>
+    <color name="cam_outline">#3A424B</color>
+    <color name="cam_outline_variant">#2A3138</color>
+
+    <color name="cam_inverse_surface">#E3E7EA</color>
+    <color name="cam_inverse_on_surface">#1B2025</color>
+    <color name="cam_inverse_primary">#0E6E8A</color>
+
+    <color name="cam_status_ok">#4CD37E</color>
+    <color name="cam_status_off">#7C858F</color>
+    <color name="cam_status_error">#F2B8B5</color>
+</resources>

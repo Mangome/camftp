@@ -2,9 +2,30 @@
 <resources>
     <!-- targetSdk 36 起系统强制 edge-to-edge：状态栏/导航栏透明、内容画到栏底下，
          且 windowOptOutEdgeToEdgeEnforcement 已失效。M3 主题不带状态栏图标颜色，
-         不声明的话浅色背景下是白图标（看不见）—— 按主题明暗自己声明 -->
+         不声明的话浅色背景下是白图标（看不见）—— 按主题明暗自己声明。
+         颜色槽位按 values/values-night 的 colors.xml 覆盖（默认 M3 紫不要）。 -->
     <style name="Theme.CamFtp" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="android:windowLightStatusBar">?attr/isLightTheme</item>
         <item name="android:windowLightNavigationBar">?attr/isLightTheme</item>
+
+        <item name="colorPrimary">@color/cam_primary</item>
+        <item name="colorOnPrimary">@color/cam_on_primary</item>
+        <item name="colorSecondaryContainer">@color/cam_secondary_container</item>
+        <item name="colorOnSecondaryContainer">@color/cam_on_secondary_container</item>
+
+        <item name="android:colorBackground">@color/cam_background</item>
+        <item name="colorOnBackground">@color/cam_on_background</item>
+        <item name="colorSurface">@color/cam_surface</item>
+        <item name="colorOnSurface">@color/cam_on_surface</item>
+        <item name="colorSurfaceVariant">@color/cam_surface_variant</item>
+        <item name="colorOnSurfaceVariant">@color/cam_on_surface_variant</item>
+        <item name="colorSurfaceContainer">@color/cam_surface_container</item>
+        <item name="colorSurfaceContainerHigh">@color/cam_surface_container_high</item>
+        <item name="colorOutline">@color/cam_outline</item>
+        <item name="colorOutlineVariant">@color/cam_outline_variant</item>
+
+        <item name="colorSurfaceInverse">@color/cam_inverse_surface</item>
+        <item name="colorOnSurfaceInverse">@color/cam_inverse_on_surface</item>
+        <item name="colorPrimaryInverse">@color/cam_inverse_primary</item>
     </style>
 </resources>

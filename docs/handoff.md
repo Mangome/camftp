@@ -68,6 +68,10 @@ app/src/main/java/io/github/mangome/camftp/
 ├── FtpState.kt            StateFlow 单例状态通道（服务→UI）
 ├── NetworkInfo.kt         枚举 IPv4、过滤虚拟网卡、优先选热点网卡（猜错了 App 就把热点标记漏掉，见 §5）
 └── MainActivity.kt        单屏 UI
+app/src/main/res/
+├── values/colors.xml + values-night/colors.xml   全部颜色（cam_* 命名，深浅两套）
+├── values/themes.xml      Theme.CamFtp：M3 槽位映射 + 状态栏/导航栏图标明暗
+└── layout/activity_main.xml   状态 → 相机读数卡 → 折叠的高级设置 → 最近收到
 app/src/test/java/.../FtpEngineTest.kt   9 个 JVM 用例（FTP 引擎全流程，含匿名登录开关两种状态）
 ```
 
@@ -93,6 +97,8 @@ app/src/test/java/.../FtpEngineTest.kt   9 个 JVM 用例（FTP 引擎全流程�
 14. **匿名登录 = 两个开关一起开**：`ConnectionConfigFactory.setAnonymousLoginEnabled(true)` + `SimpleUserManager` 处理 `AnonymousAuthentication`。两个坑：① 相机（及 curl / 资源管理器）发的用户名是字面量 `anonymous`，`USER` 命令里是**大小写敏感**的 `equals`，别自作主张做归一化；② 返回的 `User` 名字必须叫 `anonymous`，否则 `DefaultFtpStatistics` 不把它算作匿名会话。匿名与具名**共存**（不互斥）—— 少一个分支，「关了就只认具名」由开关本身搞定。`maxAnonymousLogins` 别传 0：源码里 `currAnonLogin >= maxAnonymousLogins` 永远成立，会把匿名登录全拒掉（“0 = 不限”只活在日志文案里）。
 
 比 v1 设计多做的：自检按钮、CWD 自动建目录、残留文件重试。
+
+15. **UI 视觉约定**（界面重构后定的，改界面前先看这条）：颜色只写在 `values/colors.xml` 与 `values-night/colors.xml`（`cam_*` 命名），`Theme.CamFtp` 负责把它们映射到 M3 槽位，**别在 layout 里写死颜色**；屏幕从上到下 = 状态行 + 主按钮 → 相机读数卡 → 折叠的高级设置 → 最近收到，全程左对齐；整屏只留一个视觉高峰（地址读数 34sp 等宽，相机要照着输），状态只用颜色编码不用装饰；等宽字体只用于地址/端口/账号/事件这些要逐字符比对的地方；配置类低频操作一律进折叠区，校验失败时自动展开（否则错误提示在收起的区域里，用户看不见）。
 
 ---
 
@@ -128,6 +134,8 @@ app/src/test/java/.../FtpEngineTest.kt   9 个 JVM 用例（FTP 引擎全流程�
 | `getString(R.string.x, "2121")` 配 `%d` 占位符 | **一启动就闪退** `IllegalFormatConversionException: d != java.lang.String`。资源占位符类型必须和实参一致 |
 | 跳「热点设置」的 action 名**记错一个前缀就静默跑偏** | 实测这台 ColorOS 17：`com.android.settings.TETHER_SETTINGS` **无 App 注册**（启动必失败）；`android.settings.TETHER_SETTINGS` / `android.settings.OPLUS_TETHER_SETTINGS` 落到「网络共享」页；只有 `com.android.settings.WIFI_TETHER_SETTINGS` 直接是「个人热点」页；`Settings.Panel.ACTION_INTERNET_CONNECTIVITY` 这台机上 SystemUI 没注册（只提供音量面板）。旧代码三个候选全落空 → 用户点按钮看到的是 WiFi / 网络页。**验证方法**：`adb shell dumpsys package <pkg> \| grep -i tether` 看谁真的注册了 action，再用 `am start -a <action>` + `uiautomator dump` 看落点页面标题 |
 | `adb shell pm grant` 被拒（Android 17 + ColorOS） | 用 `adb install -g` |
+| M3 反色槽位的属性名是 `colorSurfaceInverse` / `colorOnSurfaceInverse` / `colorPrimaryInverse` | 写成 `colorInverseSurface` 之类会 `resource linking failed`（Material 1.12 的 R.txt 里只有前者） |
+| 没有 `?attr/materialButtonTonalStyle` 这个 attr | 想用 tonal 按钮直接写 `style="@style/Widget.Material3.Button.TonalButton"`；`colorPrimary` 那套 attr 都在，唯独按钮风格里只有 `materialButtonStyle` / `materialCardViewOutlinedStyle` / `borderlessButtonStyle` |
 | `targetSdk 36` 起系统**强制 edge-to-edge**（`windowOptOutEdgeToEdgeEnforcement` 在 Android 16+ 失效），内容画到状态栏底下被时钟压住；且 Material 1.12 的 M3 主题不设 `android:windowLightStatusBar`，浅色主题下白图标落在浅色背景上基本看不见 | ① `activity_main.xml` 的 ScrollView 加 `android:fitsSystemWindows="true"`，20dp 内边距**必须挪到内层 LinearLayout**（`computeSystemWindowInsets` 只在「该边 padding==0」时才补 inset，padding 留在 root 上会静默失效）；② 新增 `res/values/themes.xml` 的 `Theme.CamFtp`，`windowLightStatusBar` / `windowLightNavigationBar` = `?attr/isLightTheme`，Manifest 改用它 |
 
 **顺带的事实**：这台机器开着热点时 `wlan0` 仍连着家里 Wi-Fi（驱动支持 AP+STA），所以无线调试不会因为开热点而断。

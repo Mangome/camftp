@@ -11,12 +11,14 @@
 ### 变更
 
 - 删掉「本机地址（带「热点」的那个念给相机）」那块网卡清单：标题不通顺，且与「相机里填这些」重复。热点标记并到地址那一行（`地址 10.129.14.x（热点）`），「打开热点设置」按钮挪到顶部动作区
+- 界面重构（让人看懂优先）：状态行改成「圆点 + 大字状态」，颜色表达运行/停止，主按钮随状态换主次色；「相机里填这些」做成卡片，34sp 等宽地址当主角，端口/用户/密码各占一行，匿名时只提示「相机侧开匿名登录、用户名密码留空」；配置收进「高级设置」折叠区（默认收起，校验失败自动展开），输入框换成 M3 outlined 样式；反馈由 Toast 改为 Snackbar；颜色集中到 `values/colors.xml` + `values-night/`，深色 / 浅色真机各过一遍
 
 ### 修复
 
 - 「打开热点设置」打开的其实是 WiFi / 网络设置页：原三个候选 action 在 ColorOS 上全部落空（`com.android.settings.TETHER_SETTINGS` 根本没 App 注册、`Settings.Panel.ACTION_INTERNET_CONNECTIVITY` 也没注册），最终回落到 `ACTION_WIRELESS_SETTINGS`。改用实测有效的 `com.android.settings.WIFI_TETHER_SETTINGS`（真机直达「个人热点」页），保留「网络共享」页与网络设置两级兜底
 - 顶部内容与系统状态栏重叠：`targetSdk 36` 强制 edge-to-edge，根布局补系统栏内边距（`fitsSystemWindows`）
 - 浅色主题下状态栏图标是白色的（M3 主题不设 `windowLightStatusBar`，在自家浅色背景上几乎看不见）：新增 `Theme.CamFtp`，按主题明暗声明状态栏/导航栏图标颜色
+- 「打开热点设置」按钮放回「相机里填这些」卡片：地址显示不出来（或当前不是热点地址）时它就是下一步该做的事，在卡片里比在顶部更贴近上下文（只在需要时出现）
 
 ## [0.1.0] — 2026-10-07
 
