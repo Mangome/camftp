@@ -15,9 +15,13 @@ import android.os.Bundle
 import android.provider.Settings
 import android.text.SpannableStringBuilder
 import android.text.Spanned
+import android.text.TextPaint
 import android.text.format.DateFormat
+import android.text.method.LinkMovementMethod
+import android.text.style.ClickableSpan
 import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
+import android.view.View
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -68,6 +72,7 @@ class MainActivity : AppCompatActivity() {
         binding.selfTestButton.setOnClickListener { runSelfTest() }
         binding.aboutButton.setOnClickListener { showAbout() }
         binding.advancedHeader.setOnClickListener { setAdvancedOpen(!binding.advancedBody.isVisible) }
+        binding.eventList.movementMethod = LinkMovementMethod.getInstance()   // 事件行里的「点击打开」得靠它才响应
 
         lifecycleScope.launch {
             FtpState.snapshot.collect { render(it) }
@@ -138,6 +143,7 @@ class MainActivity : AppCompatActivity() {
         val sb = SpannableStringBuilder()
         events.forEachIndexed { i, e ->
             if (i > 0) sb.append("\n")
+            val lineStart = sb.length
             var start = sb.length
             sb.append(eventTime.format(Date(e.at)))
             sb.append("  ")
@@ -154,8 +160,27 @@ class MainActivity : AppCompatActivity() {
                 sb.append(e.detail)
                 sb.setSpan(ForegroundColorSpan(dim), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             }
+            // 整行当热区（手指不用瞄准文件名）；失败行没有 uri，点不动
+            e.uri?.let { uri ->
+                sb.setSpan(
+                    object : ClickableSpan() {
+                        override fun onClick(widget: View) = openStored(uri)
+                        // 不下划线：整行密排的等宽列表会糊成链接墙，点击意图靠用户已知即可
+                        override fun updateDrawState(ds: TextPaint) = Unit
+                    },
+                    lineStart, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+                )
+            }
         }
         binding.eventList.text = sb
+    }
+
+    /** 点「最近收到」里的一行 → 交给系统默认应用打开刚入库的那张图 */
+    private fun openStored(uri: String) {
+        // 带上授读标志：图是本 App 插进 MediaStore 的，相册等的读权限靠这条临时授予
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri))
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        if (runCatching { startActivity(intent) }.isFailure) snackbar(getString(R.string.event_open_failed))
     }
 
     private fun refreshBestAddress() {

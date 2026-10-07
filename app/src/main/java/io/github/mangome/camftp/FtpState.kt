@@ -17,6 +17,8 @@ object FtpState {
         val ok: Boolean,
         val detail: String = "",
         val counts: Boolean = true,
+        /** 入库后的 MediaStore 地址（失败为 null）：UI 点这一行直接打开图片 */
+        val uri: String? = null,
         val at: Long = System.currentTimeMillis(),
     )
 

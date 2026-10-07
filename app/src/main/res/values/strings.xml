@@ -52,6 +52,7 @@
     <!-- 最近收到 -->
     <string name="section_events_title">最近收到</string>
     <string name="event_none">还没收到照片</string>
+    <string name="event_open_failed">没有应用能打开这个文件</string>
 
     <!-- 关于：版权 / 版本 / 开源信息 -->
     <string name="about">关于 CamFtp</string>

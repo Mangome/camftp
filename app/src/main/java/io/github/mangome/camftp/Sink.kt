@@ -7,4 +7,10 @@ interface Sink {
     fun onStored(file: File): StoreResult
 }
 
-data class StoreResult(val displayName: String, val ok: Boolean, val detail: String = "")
+/** [uri] = 入库后的 MediaStore 地址（String 而非 android.net.Uri：这层要留给纯 JVM）；失败时 null */
+data class StoreResult(
+    val displayName: String,
+    val ok: Boolean,
+    val detail: String = "",
+    val uri: String? = null,
+)

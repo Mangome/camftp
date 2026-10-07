@@ -111,7 +111,7 @@ class FtpService : Service() {
     private fun onResult(result: StoreResult) {
         if (result.ok) log.info("已入库 {}/{}", result.detail, result.displayName)
         else log.warn("入库失败 {}：{}", result.displayName, result.detail)
-        FtpState.addEvent(FtpState.Event(result.displayName, result.ok, result.detail))
+        FtpState.addEvent(FtpState.Event(result.displayName, result.ok, result.detail, uri = result.uri))
         updateNotification()
     }
 
