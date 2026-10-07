@@ -252,14 +252,14 @@ class SinkFtplet(private val homeDir: File, private val sink: Sink) : DefaultFtp
 - 通知：低优先级、`ongoing`，内容 `运行中 · 已收 N 张`；每收一张更新一次（`NotificationManagerCompat.notify`）。
 - 持有 `PARTIAL_WAKE_LOCK`（tag `camftp`），`onDestroy` 释放。
 - `onStartCommand` 返回 `START_STICKY`（被系统杀掉后能回来），但**不要**做开机自启（MVP 不需要，且 Android 15+ 对 `BOOT_COMPLETED` 拉起前台服务有限制）。
-- 用户名/密码只允许 ASCII 简单字符（相机上用遥控器导航打字很痛苦），默认 旧默认账号。
+- 用户名/密码只允许 ASCII 简单字符（相机上用遥控器导航打字很痛苦），默认 `camftp` / `123456`。
 - 通过 `LocalBroadcastManager`/`StateFlow` 单例把状态（运行中/计数/最后文件名/错误）给 UI。
 
 ### 6.6 `MainActivity.kt` + `activity_main.xml`
 必须有的元素（别加更多）：
 1. 状态行：`运行中 · 0.0.0.0:2121` 或 `已停止`。
 2. 「启动 / 停止」大按钮。
-3. **给相机念的地址块**（字号最大）：`地址 192.168.43.1 · 端口 2121 · 旧默认账号` + 「复制」按钮。
+3. **给相机念的地址块**（字号最大）：`地址 192.168.43.1 · 端口 2121 · 用户 camftp · 密码 123456` + 「复制」按钮。
 4. 配置：端口 / 用户名 / 密码 / 保存目录名（SharedPreferences 持久化，改配置时若服务在跑就提示重启服务）。
 5. 网卡列表：枚举 `NetworkInterface.getNetworkInterfaces()` 的 IPv4，显示 `接口名 → IP`，热点接口高亮（名字命中 `ap0|swlan0|wlan1|softap0|wlan-ap` 视为热点；命中不了就只显示列表并提示"填相机里那个热点网段的地址"）。
 6. 「打开热点设置」按钮。
