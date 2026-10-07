@@ -11,13 +11,16 @@ import kotlinx.coroutines.flow.update
  */
 object FtpState {
 
-    data class Event(val name: String, val ok: Boolean, val detail: String = "")
+    /** [counts] = false 的事件（自检图）不进「已收到 N 张」的计数 */
+    data class Event(val name: String, val ok: Boolean, val detail: String = "", val counts: Boolean = true)
 
     data class Snapshot(
         val running: Boolean = false,
         val port: Int = 0,
         val received: Int = 0,
         val events: List<Event> = emptyList(),
+        /** 本进程内成功入库过（真图或自检图）→ 入库链路已被证明，自检按钮可以收了 */
+        val anyStored: Boolean = false,
     )
 
     private const val MAX_EVENTS = 10
@@ -31,7 +34,8 @@ object FtpState {
 
     fun addEvent(event: Event) = _snapshot.update {
         it.copy(
-            received = it.received + if (event.ok) 1 else 0,
+            received = it.received + if (event.ok && event.counts) 1 else 0,
+            anyStored = it.anyStored || event.ok,
             events = (listOf(event) + it.events).take(MAX_EVENTS),
         )
     }

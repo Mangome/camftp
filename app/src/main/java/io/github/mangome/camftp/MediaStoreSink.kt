@@ -37,17 +37,17 @@ class MediaStoreSink(
 
         val resolver = context.contentResolver
         val uri: Uri = resolver.insert(collection, values)
-            ?: return StoreResult(name, false, "相册插入失败")
+            ?: return StoreResult(name, false, "保存失败")
 
         try {
             resolver.openOutputStream(uri)?.use { out ->
                 file.inputStream().use { it.copyTo(out) }
-            } ?: throw IllegalStateException("打不开相册输出流")
+            } ?: throw IllegalStateException("打不开相册")
             resolver.update(uri, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }, null, null)
         } catch (t: Throwable) {
             log.warn("入库失败，回滚半成品 {}", name, t)
             runCatching { resolver.delete(uri, null, null) }
-            return StoreResult(name, false, "入库失败：${t.message ?: t::class.simpleName}")
+            return StoreResult(name, false, "保存失败：${t.message ?: t::class.simpleName}")
         }
 
         // 只有入库成功才删源文件：失败就留在私有目录，下次启动重试（宁留垃圾不丢图）

@@ -107,7 +107,7 @@ class FtpEngine(
             } catch (t: Throwable) {
                 log.warn("入库失败：{}", file.name, t)
                 // 保底：出错绝不删源文件，留在 homeDir 里，下次启动重试
-                StoreResult(file.name, false, "入库失败：${t.message ?: t::class.simpleName}")
+                StoreResult(file.name, false, "保存失败：${t.message ?: t::class.simpleName}")
             }
             runCatching { onResult(result) }
         }

@@ -51,9 +51,9 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:lineSpacingExtra="2dp"
-            android:text="@string/status_stopped_detail"
             android:textColor="?attr/colorOnSurfaceVariant"
-            android:textSize="14sp" />
+            android:textSize="14sp"
+            android:visibility="gone" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/toggleButton"
@@ -429,15 +429,6 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="20dp"
                         android:text="@string/save" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/selfTestButton"
-                        style="?attr/borderlessButtonStyle"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_gravity="center_horizontal"
-                        android:layout_marginTop="6dp"
-                        android:text="@string/self_test" />
                 </LinearLayout>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
@@ -464,16 +455,6 @@
             android:textStyle="bold" />
 
         <TextView
-            android:id="@+id/eventEmptyDetail"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:lineSpacingExtra="2dp"
-            android:text="@string/event_none_detail"
-            android:textColor="?attr/colorOnSurfaceVariant"
-            android:textSize="14sp" />
-
-        <TextView
             android:id="@+id/eventList"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -482,5 +463,14 @@
             android:lineSpacingExtra="6dp"
             android:textSize="13sp"
             android:visibility="gone" />
+
+        <!-- 什么都没收到过时的出口：先证明 App 这端是好的（自检成功/收到真图后自动收起） -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/selfTestButton"
+            style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:text="@string/self_test" />
     </LinearLayout>
 </ScrollView>

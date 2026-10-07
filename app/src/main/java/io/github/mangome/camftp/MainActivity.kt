@@ -84,11 +84,8 @@ class MainActivity : AppCompatActivity() {
     private fun render(state: FtpState.Snapshot) {
         running = state.running
         binding.statusText.setText(if (state.running) R.string.status_running else R.string.status_stopped)
-        binding.statusDetail.text = if (state.running) {
-            getString(R.string.status_running_detail, state.received)
-        } else {
-            getString(R.string.status_stopped_detail)
-        }
+        binding.statusDetail.isVisible = state.running
+        if (state.running) binding.statusDetail.text = getString(R.string.status_running_detail, state.received)
         binding.statusDot.backgroundTintList = ColorStateList.valueOf(
             ContextCompat.getColor(this, if (state.running) R.color.cam_status_ok else R.color.cam_status_off)
         )
@@ -105,12 +102,13 @@ class MainActivity : AppCompatActivity() {
         binding.toggleButton.setTextColor(MaterialColors.getColor(binding.toggleButton, fgAttr))
 
         renderEvents(state.events)
+        // 本进程内已经有成功入库（真图或自检图）→ 入库链路已被证明，自检按钮收起来
+        binding.selfTestButton.isVisible = !state.anyStored
         updateCameraHint()
     }
 
     private fun renderEvents(events: List<FtpState.Event>) {
         binding.eventEmpty.isVisible = events.isEmpty()
-        binding.eventEmptyDetail.isVisible = events.isEmpty()
         binding.eventList.isVisible = events.isNotEmpty()
         if (events.isEmpty()) return
 
@@ -179,7 +177,7 @@ class MainActivity : AppCompatActivity() {
             ContextCompat.startForegroundService(this, Intent(this, FtpService::class.java))
             // 服务起来前先给个说法，别让按钮看起来没反应
             binding.statusText.setText(R.string.status_starting)
-            binding.statusDetail.setText(R.string.status_starting_detail)
+            binding.statusDetail.isVisible = false
         }
     }
 
@@ -272,6 +270,10 @@ class MainActivity : AppCompatActivity() {
                 drawSelfTestImage().compress(Bitmap.CompressFormat.JPEG, 90, file.outputStream())
                 MediaStoreSink(applicationContext, folder).onStored(file)
             }
+            // 自检结果也进「最近收到」：成功即收起按钮，失败留在列表里可重试
+            FtpState.addEvent(
+                FtpState.Event(getString(R.string.self_test_event), result.ok, result.detail, counts = false)
+            )
             val text = if (result.ok) {
                 getString(R.string.self_test_ok, result.displayName, result.detail)
             } else {
@@ -289,9 +291,9 @@ class MainActivity : AppCompatActivity() {
             color = Color.WHITE
             textSize = 56f
         }
-        canvas.drawText("CamFtp 自检图", 80f, 380f, paint)
+        canvas.drawText("CamFtp 测试图", 80f, 380f, paint)
         paint.textSize = 36f
-        canvas.drawText("能看到这张图 = 入库链路正常", 80f, 450f, paint)
+        canvas.drawText("相册里能看到这张图，说明保存正常", 80f, 450f, paint)
         return bmp
     }
 

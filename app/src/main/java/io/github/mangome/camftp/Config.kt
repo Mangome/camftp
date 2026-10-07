@@ -71,12 +71,13 @@ object Config {
         if (parts.size != 2) return "格式：32768-61000"
         val from = parts[0].trim().toIntOrNull() ?: return "格式：32768-61000"
         val to = parts[1].trim().toIntOrNull() ?: return "格式：32768-61000"
-        if (from !in MIN_PORT..MAX_PORT || to !in MIN_PORT..MAX_PORT || from >= to) return "端口需在 $MIN_PORT-$MAX_PORT 且 起<止"
+        if (from !in MIN_PORT..MAX_PORT || to !in MIN_PORT..MAX_PORT) return "端口要在 $MIN_PORT-$MAX_PORT 之间"
+        if (from >= to) return "起始端口要小于结束端口"
         return null
     }
 
     fun portError(value: String): String? {
         val n = value.trim().toIntOrNull() ?: return "必须是数字"
-        return if (n in MIN_PORT..MAX_PORT) null else "需在 $MIN_PORT-$MAX_PORT（<1024 需要特权）"
+        return if (n in MIN_PORT..MAX_PORT) null else "端口要在 $MIN_PORT-$MAX_PORT 之间"
     }
 }

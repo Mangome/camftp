@@ -49,6 +49,7 @@ Set-Location <仓库根>
 - `adb shell pm grant` 会被拒（Android 17 + ColorOS 收紧）→ 一律用 `adb install -g` 一次授予
 - 截图全黑 = 手机息屏 → 先 `adb shell input keyevent KEYCODE_WAKEUP`；**用户正在用手机时别抢屏幕**
 - `uiautomator dump` 遇到窗口动画偶发失败 → 重试几次
+- **截图别写 `/sdcard`**：`screencap -p /sdcard/x.png` 会被 MediaStore 扫进系统相册（相册里冒出一堆 `sN.png`，清完要 `content delete` + `rm` 两头删）→ 写 `/data/local/tmp/`，那个目录不被扫描
 - 区分「App 崩了」和「用户划掉了」：看 `adb shell logcat -d -b crash`，别只看 `dumpsys window` 的焦点
 
 ---
@@ -99,6 +100,7 @@ app/src/test/java/.../FtpEngineTest.kt   9 个 JVM 用例（FTP 引擎全流程�
 比 v1 设计多做的：自检按钮、CWD 自动建目录、残留文件重试。
 
 15. **UI 视觉约定**（界面重构后定的，改界面前先看这条）：颜色只写在 `values/colors.xml` 与 `values-night/colors.xml`（`cam_*` 命名），`Theme.CamFtp` 负责把它们映射到 M3 槽位，**别在 layout 里写死颜色**；屏幕从上到下 = 状态行 + 主按钮 → 相机读数卡 → 折叠的高级设置 → 最近收到，全程左对齐；整屏只留一个视觉高峰（地址读数 34sp 等宽，相机要照着输），状态只用颜色编码不用装饰；等宽字体只用于地址/端口/账号/事件这些要逐字符比对的地方；配置类低频操作一律进折叠区，校验失败时自动展开（否则错误提示在收起的区域里，用户看不见）。
+16. **自检按钮是「情境化」的，不是设置项**：它长在「最近收到」区块里（配置类操作才进折叠区），只在 `FtpState.Snapshot.anyStored == false`（本进程还没有任何成功入库）时出现 —— 收到真图或自检成功即自动收起，**自检失败则留在列表下可重试**（失败不能把唯一的自检入口关掉）。显隐复用已有状态、不写 SharedPreferences，冷启动回到初始态自然回来（否则「想再自检一次」就得清 App 数据）。自检结果同时往事件列表写一条 `Event(name = "测试图", counts = false)`：`counts = false` 保证它不算进「已收到 N 张」（`FtpStateTest` 守着这两条）。
 
 ---
 
@@ -203,6 +205,7 @@ adb shell ls -l /sdcard/DCIM/CamFtp/
 ## 9. 备忘
 
 - **临时文件一律放 `temp/`**（截图、dumpsys 转储），已在 `.gitignore` 里 —— 仓库根目录不落临时文件。
+- **「最近收到」里出现「测试图」不是异常**：自检按钮的结果按设计进事件列表（`self_test_event`，`counts=false` 不计入张数），不是来路不明的文件。
 - `.gitattributes` 强制 `gradlew` LF、`*.bat` CRLF；`git add` 时 "LF will be replaced by CRLF" 是无害警告。
 - `openspec/` 是误提交，已从仓库移除（本地文件还留着，也在 `.gitignore` 里）。
 - 应用图标是手写矢量（`ic_launcher_foreground.xml` 相机+上传箭头 / 深蓝底），当时生图工具不可用。想换 AI 图标先配好 provider。
