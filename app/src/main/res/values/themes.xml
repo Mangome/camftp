@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- targetSdk 36 起系统强制 edge-to-edge：状态栏/导航栏透明、内容画到栏底下，
+         且 windowOptOutEdgeToEdgeEnforcement 已失效。M3 主题不带状态栏图标颜色，
+         不声明的话浅色背景下是白图标（看不见）—— 按主题明暗自己声明 -->
+    <style name="Theme.CamFtp" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:windowLightStatusBar">?attr/isLightTheme</item>
+        <item name="android:windowLightNavigationBar">?attr/isLightTheme</item>
+    </style>
+</resources>

@@ -2,6 +2,13 @@
 
 本项目遵循[语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### 修复
+
+- 顶部内容与系统状态栏重叠：`targetSdk 36` 强制 edge-to-edge，根布局补系统栏内边距（`fitsSystemWindows`）
+- 浅色主题下状态栏图标是白色的（M3 主题不设 `windowLightStatusBar`，在自家浅色背景上几乎看不见）：新增 `Theme.CamFtp`，按主题明暗声明状态栏/导航栏图标颜色
+
 ## [0.1.0] — 2026-10-07
 
 首个可用版本：手机当 FTP 服务器接收相机上传的照片（Nikon Z50II 真机验收通过）。

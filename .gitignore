@@ -13,6 +13,7 @@ captures/
 *.apk
 keystore.properties
 .pi
+temp/
 
 # 与本项目无关的误提交产物（本地保留）
 openspec/

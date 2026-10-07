@@ -78,8 +78,7 @@ camftp/
 ├── .gitattributes / .gitignore
 ├── docs/
 │   ├── app-development.md               原始设计与需求（v1）
-│   ├── handoff.md                       ← 本文档
-│   └── images/app-top.png, app-bottom.png   App 截图（M4 用；状态栏含运营商名，发布前建议裁剪）
+│   └── handoff.md                       ← 本文档
 └── app/
     ├── build.gradle.kts                 compileSdk/targetSdk 36、minSdk 29、ViewBinding、packaging excludes
     └── src/
@@ -133,6 +132,7 @@ camftp/
 | 10 | 平台 | **ColorOS 热点网卡叫 `ap0`，网段 `10.129.14.x`**（不是文档假设的 `192.168.43.1`）；同一时刻还有 `wlan0`(家里 Wi-Fi)、`vgate0`(172.30.x)、`ccmni*`(移动数据)、tun/gre/ifb/dummy 一堆虚拟网卡 | "枚举所有 IPv4"会把垃圾地址念给相机。`NetworkInfo` 里黑名单过滤 + 热点名置顶 |
 | 11 | UI | `getString(R.string.x, "2121")` 配 `%d` 占位符 | **一启动就闪退** `IllegalFormatConversionException: d != java.lang.String`。资源占位符类型必须和实参一致 |
 | 12 | 平台 | `adb shell pm grant` 被拒（Android 17 + ColorOS） | 用 `adb install -g` 授予 |
+| 13 | UI | `targetSdk 36` 起系统**强制 edge-to-edge**（`windowOptOutEdgeToEdgeEnforcement` 在 Android 16+ 失效），内容画到状态栏底下被时钟压住；而且 **Material 1.12 的 M3 主题不设 `android:windowLightStatusBar`**（只设 `statusBarColor=transparent`），浅色主题下状态栏是白图标，落在自家浅色背景上基本看不见 | ①`activity_main.xml` 的 ScrollView 加 `android:fitsSystemWindows="true"`，20dp 内边距**必须挪到内层 LinearLayout**（`View.computeSystemWindowInsets` 只在「该边 padding==0」时才补 inset，padding 留在 root 上会让它静默失效）；②新增 `res/values/themes.xml` 的 `Theme.CamFtp`：`windowLightStatusBar` / `windowLightNavigationBar` = `?attr/isLightTheme`（appcompat 的布尔 attr，亮 true / 暗 false），Manifest 改用它 |
 
 补充事实：这台机器开着热点时 `wlan0` **仍连着家里 Wi-Fi**（驱动支持 AP+STA），所以无线调试不会因为开热点而断。
 
@@ -168,7 +168,7 @@ camftp/
 1. **`LICENSE`** ✅ Apache-2.0 全文，版权人 `Mangome`
 2. **`NOTICE`** ✅ 逐个抄了 ftpserver-core / ftplet-api / mina-core / slf4j（从 jar 里的 `META-INF/NOTICE` 原文提取，不是凭记忆写的）+ AndroidX/Kotlin/Material 一行；`commons-net` 是 `testImplementation`，没写进去
 3. **`README.md`** ✅ 中文为主 + 英文简介：一句话说明 → 三步上手 → Z50II 相机设置步骤 + 通用机型 → **12 条常见错误对照表**（含文档 §9 的 8 条坑全部）→ 已测/未测清单 → 构建 + 签名说明 → 隐私声明 → 许可
-4. **截图** ⏭ 用户决定**先不放截图**（现有两张是测试期抓的，「小微」悬浮球压住状态栏）。`docs/images/*.png` 仍在仓库里，README 没引用；要放图得重拍
+4. **截图** ⏭ 用户决定**先不放截图**（现有两张是测试期抓的，「小微」悬浮球压住状态栏），**已删掉 `docs/images/`**；要放图得重拍
 5. **版本号 / CHANGELOG** ✅ `versionCode 1` / `versionName 0.1.0` + `CHANGELOG.md`
 6. **签名 release APK** ✅ keystore 在 **`<你的 release keystore 路径>`**（仓库外，PKCS12，alias `camftp`，有效期 30 年），凭据在仓库根的 `keystore.properties`（密码是随机生成的，已 gitignore）。`app/build.gradle.kts` 缺这个文件就退化成未签名包，不影响 debug 构建。**备份这两样东西**，丢了就没法给已装用户升级
 7. **GitHub Release** ✅ tag `v0.1.0`，附签名 APK（`app-release.apk`，11.6 MB，v2 签名）
@@ -241,8 +241,15 @@ $m = [regex]::Match($x, 'text="启动"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\
 adb shell input tap <centerX> <centerY>
 ```
 
-### 相机验收清单（原文，交给用户跑）
+### 状态栏颜色 / 内边距排查
 
+```powershell
+# 看窗口 apr= 里有没有 LIGHT_STATUS_BARS（没有就是白图标，落在浅色背景上看不见）
+adb shell dumpsys window windows | Select-String "camftp" -Context 0,10
+adb shell cmd uimode night yes   # 临时切暗色验证（验完记得 night no）
+```
+
+### 相机验收清单（原文，交给用户跑）
 1. 手机开热点（SSID 纯英文）
 2. App 点启动，记下显示的 `地址`（实测 `10.129.14.x`）
 3. 相机：`网络` → `连接到FTP服务器` → `网络设定` → `创建配置文件` → `配置手动`
@@ -261,6 +268,7 @@ adb shell input tap <centerX> <centerY>
 - **生图工具不可用**：`~/.pi/agent/models.json` 没有有效的 `sgra` provider，所以图标是手写矢量（`ic_launcher_foreground.xml` 相机+上传箭头 / `ic_launcher_background.xml` 深蓝底）。想换 AI 生成的图标先配 provider。
 - **git 代理陷阱**：全局 `http.proxy=127.0.0.1:7890` 指向没在跑的 v2rayN → https remote 一定失败。origin 已改成 SSH，别再改回 https，除非你确定代理开着。
 - **`openspec/` 是误提交**，已从仓库移除（见 §7.8，本地文件还在）。
+- **临时文件一律放 `temp/`**（截图、dumpsys 转储、压缩包），已在 `.gitignore` 里 —— 仓库根目录不落临时文件。
 - **签名凭据**：keystore `<你的 release keystore 路径>` + 仓库根 `keystore.properties`（都在版本控制外）。换机器开发时要把这两样复制过去。
 - **发布 APK 的下载地址**：<https://github.com/Mangome/camftp/releases/latest>
 - `.gitattributes` 已加（`gradlew` 强制 LF、`*.bat` CRLF）。`git add` 时那句 "LF will be replaced by CRLF" 是无害警告。
