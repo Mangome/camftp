@@ -71,7 +71,7 @@ keyPassword=****
 | 文件 | 内容 |
 | --- | --- |
 | [`docs/camera-setup.md`](docs/camera-setup.md) | 相机逐级设置 + 常见报错排查 |
-| [`docs/handoff.md`](docs/handoff.md) | 开发笔记：环境、设计决策、踩坑、验收矩阵、待办 |
+| [`docs/handoff.md`](docs/handoff.md) | 开发笔记：设计决策、踩过的坑、已知风险、待办、回归命令 |
 | [`CHANGELOG.md`](CHANGELOG.md) | 变更记录 |
 
 Apache License 2.0（见 [`LICENSE`](LICENSE)），第三方组件声明见 [`NOTICE`](NOTICE)。

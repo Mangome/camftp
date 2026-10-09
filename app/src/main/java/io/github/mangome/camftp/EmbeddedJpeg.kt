@@ -8,7 +8,7 @@ import java.io.File
  *
  * NEF / TIFF 系 RAW 的布局是「原始数据 + 旁边挂一张（或多张不同尺寸的）JPEG 预览」。
  * `BitmapFactory` 解不了 TIFF，所以抽内嵌预览是 RAW 出图的唯一办法
- * （相机实测 Nikon Z50II 传的就是 `.NEF`，见 handoff §6）。
+ * （相机实测 Nikon Z50II 传的就是 `.NEF`，见 handoff §5）。
  *
  * 扫描规则：`FF D8 FF`（SOI 后面必须紧跟一个 marker 字节）开始，到 `FF D9`（EOI）结束。
  * 熵编码段里的 `FF` 被 `FF 00` 转义，这两个序列不会在图像数据里假命中，单趟流式扫描就够。

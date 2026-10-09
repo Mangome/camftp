@@ -50,7 +50,7 @@ object NetworkInfo {
      *
      * `ap0` 这类名字直接定案；只有 `wlanN` 才去和 STA 名单比对。**STA 名单不能用来否决 AP 专有名**：
      * ColorOS 17 会把自己热点那张卡（`ap0`）也报进 `TRANSPORT_WIFI` 的网络里，一律比对就把热点误杀 ——
-     * 开了热点却显示「需要开启热点」（见 handoff §5）。
+     * 开了热点却显示「需要开启热点」（见 handoff §4）。
      */
     internal fun isHotspot(name: String, staWifi: Set<String>) =
         if (WLAN_N.matches(name)) name !in staWifi else AP_ONLY.matches(name)

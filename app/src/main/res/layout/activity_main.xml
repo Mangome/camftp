@@ -25,7 +25,8 @@
         <!-- 1. 相机连接面板：整屏视觉主角（唯一一块暗色 + 唯一的动效）。
              「相机连上了没」比地址重要 —— 地址只在给相机填配置时用一次，连接状态是拍摄现场一直盯着的。
              两块靠「底色」分层：暗面板 = 现在怎么样，白卡 = 往相机里填什么，不靠字号互抢。
-             状态词由 updateCameraHint() 唯一负责（只有它知道有没有热点），别在别处 setText -->
+             状态词由 updateCameraHint() 唯一负责（只有它知道有没有热点），别在别处 setText；
+             面板底色也在那同一个 when 里选（三档暗色，见 colors.xml）—— 这里只给闲置那档兜底 -->
         <LinearLayout
             android:id="@+id/linkPanel"
             android:layout_width="match_parent"

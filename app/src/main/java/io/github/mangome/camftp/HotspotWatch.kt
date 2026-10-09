@@ -23,7 +23,7 @@ fun serviceAction(canReceive: Boolean, running: Boolean): ServiceAction = when {
  *
  * 什么时候复查一次：
  *  - 系统广播（[HotspotReceiver]）：[attach] 注册的运行时接收器是**真正干活**的那份；清单里也声明了一份，
- *    但实测 Android 17 / ColorOS 每次都被隐式广播策略拦掉（handoff §5），只当给别的 ROM 兜底
+ *    但实测 Android 17 / ColorOS 每次都被隐式广播策略拦掉（handoff §4），只当给别的 ROM 兜底
  *  - 回到前台（MainActivity.onResume）、服务起来时（FtpService.start 的兜底检查）
  * 每次判断都重新扫网卡：广播里带的数据只当「该看一眼了」的闹钟，不信它的内容。
  */

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 相机连接面板的底：整屏唯一一块暗色。跟两张读数卡（白底 + 描边）靠底色区分开来 -->
+<!-- 相机连接面板的底：整屏唯一一块暗色（只给圆角 + 闲置那档底色，运行时 updateCameraHint() 用
+     backgroundTintList 按状态换色相，仍是暗块）。跟两张读数卡（白底 + 描边）靠底色区分开来 -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
     <corners android:radius="20dp" />

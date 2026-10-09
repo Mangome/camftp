@@ -21,8 +21,11 @@
     <color name="cam_inverse_primary">#0E6E8A</color>
 
     <!-- 连接面板：夜里比底色再沉一点（是「槽」不是「块」），其余面板色沿用 values 里那套
-         —— 面板在两个主题下都是暗底 + 亮字，所以只有底色需要分主题 -->
+         —— 面板在两个主题下都是暗底 + 亮字，所以只有底色需要分主题。
+         三档状态色同样分主题：夜里比白天再暗一档，绿/红只做色相提示，不能变成夜里的光源 -->
     <color name="cam_instrument">#06090C</color>
+    <color name="cam_instrument_live">#04140D</color>
+    <color name="cam_instrument_alert">#170A09</color>
 
     <color name="cam_error_container">#3D1E1B</color>
     <color name="cam_on_error_container">#F5C7C3</color>

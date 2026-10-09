@@ -35,7 +35,7 @@
             android:exported="false"
             android:foregroundServiceType="connectedDevice" />
         <!-- 热点开/关的广播：清单这份是「万一」。实测 Android 17 / ColorOS 每次都被
-             `skipped by policy at enqueue: Background execution not allowed` 拦掉（handoff §5），
+             `skipped by policy at enqueue: Background execution not allowed` 拦掉（handoff §4），
              真正干活的是 HotspotWatch.attach() 那份运行时接收器；这份留着给策略不同的 ROM 兜底。
              exported 必须 true 才收得到系统广播；里面不认广播带的数据（只当闹钟，回头自己扫网卡），
              别的 App 发假广播也顶多让我们重扫一次 → 不给权限，安全 -->

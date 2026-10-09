@@ -49,7 +49,7 @@ import java.util.Locale
 /**
  * 单屏：相机连接面板（主角）/ 相机里要填的读数 / 高级设置（折叠）/ 最近收到。
  * 没有开始/停止按钮：接收跟着热点走（见 [HotspotWatch]），关热点就是停止。
- * 不做多页面、不做 Compose（文档 §5.2）。
+ * 不做多页面、不做 Compose（见 handoff §0「别做的」）。
  */
 class MainActivity : AppCompatActivity() {
 
@@ -131,7 +131,7 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * 事件行的时间戳用固定 24 小时制 [SimpleDateFormat]，不走 `android.text.format.DateFormat`：
-     * 12/24 小时制在 ROM 上的处理不一致（§5 的字体度量那个坑同源）。到秒 —— 连拍几张都落在
+     * 12/24 小时制在 ROM 上的处理不一致（handoff §4 的字体度量那个坑同源）。到秒 —— 连拍几张都落在
      * 同一分钟里，只到分钟分不出先后。条目是落盘的，重启后列表里可能是前几天收的：非今天带上
      * 月日，否则「18:23:45」看着像刚刚收到
      */
@@ -288,7 +288,6 @@ class MainActivity : AppCompatActivity() {
 
         // 前提条件：相机只能连热点。没热点时面板说的就是「需要开启热点」
         // （原来另有一张错误色警示卡，跟这行是同一件事，已删）
-        // 颜色只用三个语义：连上=面板上的绿（跟灯同色），等/断开=面板上的亮字，缺热点=暗字
         binding.statusText.setText(
             when {
                 hotspotIface == null -> R.string.status_need_hotspot
@@ -298,16 +297,17 @@ class MainActivity : AppCompatActivity() {
                 else -> R.string.status_camera_offline
             }
         )
-        binding.statusText.setTextColor(
-            ContextCompat.getColor(
-                this,
-                when {
-                    transferring != null || connected -> R.color.cam_link_on
-                    hotspotIface == null -> R.color.cam_on_instrument_variant
-                    else -> R.color.cam_on_instrument
-                },
-            )
-        )
+        // 字色 / 面板底色只三个语义：连上、传输中=绿（跟灯同色）+ 暗绿底，等 / 断开=亮字，缺热点=暗字 + 暗红底。
+        // 分支顺序跟上一段一致：没热点时即使还挂着残留会话也不报绿。
+        // 底色只换色相不换明度 —— 面板在两个主题下都得是暗块（handoff §2.26、colors.xml）
+        val (panelColor, textColor) = when {
+            hotspotIface == null -> R.color.cam_instrument_alert to R.color.cam_on_instrument_variant
+            transferring != null || connected -> R.color.cam_instrument_live to R.color.cam_link_on
+            else -> R.color.cam_instrument to R.color.cam_on_instrument
+        }
+        binding.linkPanel.backgroundTintList =
+            ColorStateList.valueOf(ContextCompat.getColor(this, panelColor))
+        binding.statusText.setTextColor(ContextCompat.getColor(this, textColor))
 
         // 副行：传输中报文件名，否则只在「断开但连过」时说「上次连接」，其他状态不占位
         val offlineSince = state.running && !connected && state.lastConnectAt > 0L

@@ -26,13 +26,17 @@
     <color name="cam_on_error_container">#7A1B15</color>
 
     <!-- 连接面板（整屏唯一的暗色块）：两个主题下都保持暗底，夜里看屏幕不会被一整块亮色砸到。
-         它跟两张读数卡（白底 + 描边）靠底色区分，不靠把字放大去跟 34sp 的地址读数抢 -->
+         它跟两张读数卡（白底 + 描边）靠底色区分，不靠把字放大去跟 34sp 的地址读数抢。
+         底色按状态换色相（不换明度，仍是暗块）：闲置=中性墨蓝 / 连上=暗绿 / 缺热点=暗红。
+         `cam_instrument` 是闲置那档，也是 bg_instrument.xml 的底色（运行时被 backgroundTintList 覆盖） -->
     <color name="cam_instrument">#101820</color>
+    <color name="cam_instrument_live">#0A2A1B</color>
+    <color name="cam_instrument_alert">#2A1210</color>
     <color name="cam_on_instrument">#E9EFF3</color>
     <color name="cam_on_instrument_variant">#8FA0AC</color>
 
     <!-- 语义色：运行中的绿点 / 停止的灰点 / 入库失败的叉 -->
-    <!-- 面板上的那颗灯：连上=亮绿（呼吸）/ 没连上=暗灰 -->
+    <!-- 面板上的那颗灯：连上=亮绿（呼吸）/ 没连上=暗灰。跟 cam_instrument_live 同一族绿 -->
     <color name="cam_link_on">#4ED88F</color>
     <color name="cam_link_off">#6E7C88</color>
 

@@ -1,7 +1,7 @@
 # CamFtp 开发笔记
 
-**仓库** <https://github.com/Mangome/camftp> ｜ **状态**：功能完成，`v0.1.5` 已发布（热点即开关 §3.20、HyperOS / ColorOS 热点识别修复、相机连接面板 §3.26、App 在前台不熄屏、「最近收到」换成缩略图网格 §3.25）
-**面向**：要改这个仓库的人 / 新的 agent session。原 v1 设计文档 `app-development.md` 已并入本文（连同它被实测证伪的部分，见 §5），不再单独维护。
+**仓库** <https://github.com/Mangome/camftp> ｜ **状态**：功能完成，`v0.1.5` 已发布（变更见 `CHANGELOG.md`）
+**面向**：要改这个仓库的人 / 新的 agent session。原 v1 设计文档 `app-development.md` 已并入本文（连同它被实测证伪的部分，见 §4），不再单独维护。本机 / 个人工作台内容（环境、真机验收流水、取证命令）在 `temp/dev-notes.local.md`（已 gitignore）。
 
 ---
 
@@ -9,7 +9,7 @@
 
 - 前台服务里跑 **Apache FtpServer 1.2.1**：控制端口 `2121`（可配），被动端口 `32768-61000`（尼康手册写死的范围）
 - 相机（实测 **Nikon Z50II**）经**手机热点**连上来，FTP `STOR` 推图 → 写入 MediaStore（图片 / 视频 → `DCIM/<目录>`，其它类型 → `Download/<目录>`）→ 通知栏显示已收张数
-- **不申请存储权限**（走 MediaStore，Android 10+ 免权限）、**不替用户开热点**（只跳设置）、**热点就是总开关**：开着就在收、关掉就停，App 里没有开始 / 停止按钮（见 §3.20）、只有一屏 UI
+- **不申请存储权限**（走 MediaStore，Android 10+ 免权限）、**不替用户开热点**（只跳设置）、**热点就是总开关**：开着就在收、关掉就停，App 里没有开始 / 停止按钮（见 §2.20）、只有一屏 UI
 
 ```
 MainActivity (XML + ViewBinding)          状态 / 热点设置入口 / 配置 / 相机地址块 / 事件
@@ -21,41 +21,12 @@ HotspotWatch (+ HotspotReceiver)          热点开/关 → 起/停 FtpService�
             └─ FtpServerFactory + SinkFtplet + SimpleUserManager
 ```
 
-**别做的**：自己写 FTP 协议栈、引第三方 FTP 库、上 Compose（单屏，只换来编译器/BOM 版本对齐风险）、`MANAGE_EXTERNAL_STORAGE`、开机自启、**手动开始/停止按钮**（§3.20）。机型差异只做成数据，**不要**为它抽 interface / factory（只有一种实现）；真出现第二种传输协议（如 PTP/IP）再抽 `Transport`。
+**别做的**：自己写 FTP 协议栈、引第三方 FTP 库、上 Compose（单屏，只换来编译器/BOM 版本对齐风险）、`MANAGE_EXTERNAL_STORAGE`、开机自启、**手动开始/停止按钮**（§2.20）。机型差异只做成数据，**不要**为它抽 interface / factory（只有一种实现）；真出现第二种传输协议（如 PTP/IP）再抽 `Transport`。
 `FtpEngine` 只依赖 `java.io` + ftpserver，是全部可测性的来源。
 
 ---
 
-## 1. 环境（Windows 开发机）
-
-> 每个新的 PowerShell 会话都要先设一遍（用户级已写进注册表，但已启动的进程读不到）
-
-```powershell
-$env:JAVA_HOME='<JDK 21 路径>'
-$env:ANDROID_HOME='<Android SDK 路径>'
-$env:Path="$env:JAVA_HOME\bin;<Gradle 8.14.5 的 bin>;<Android SDK 路径>\platform-tools;$env:Path"
-Set-Location <仓库根>
-```
-
-| 项 | 值 |
-| --- | --- |
-| JDK / Gradle | Temurin 21 · Gradle 8.14.5（wrapper dist 已缓存，`./gradlew` 可直接用，也可用系统 `gradle`） |
-| Android SDK | `<Android SDK 路径>`（platform-tools 37.0.1、`platforms;android-36`、`build-tools;36.0.0`，licenses 已接受） |
-| 测试机 | **一台 OPPO ColorOS 机**：Android 17 / API 37、ColorOS、arm64，无线调试在线（serial 用 `adb devices` 取） |
-| 网络 | `dl.google.com` / `repo1.maven.org` **可直连**；`developer.android.com` 不通，走代理 `<HTTP 代理主机>:7890`（只在单次命令里显式指定） |
-| origin | **SSH** `git@github.com:Mangome/camftp.git`。git 全局 `http.proxy` 指向没在跑的代理，https remote 必失败 —— 别改回 https |
-
-**adb 操作坑**（都踩过）：
-
-- `adb shell pm grant` 会被拒（Android 17 + ColorOS 收紧）→ 一律用 `adb install -g` 一次授予
-- 截图全黑 = 手机息屏 → 先 `adb shell input keyevent KEYCODE_WAKEUP`；**用户正在用手机时别抢屏幕**
-- `uiautomator dump` 遇到窗口动画偶发失败 → 重试几次
-- **截图别写 `/sdcard`**：`screencap -p /sdcard/x.png` 会被 MediaStore 扫进系统相册（相册里冒出一堆 `sN.png`，清完要 `content delete` + `rm` 两头删）→ 写 `/data/local/tmp/`，那个目录不被扫描
-- 区分「App 崩了」和「用户划掉了」：看 `adb shell logcat -d -b crash`，别只看 `dumpsys window` 的焦点
-
----
-
-## 2. 代码结构
+## 1. 代码结构
 
 ```
 app/src/main/java/io/github/mangome/camftp/
@@ -67,20 +38,20 @@ app/src/main/java/io/github/mangome/camftp/
 ├── ExifTransform.kt       **纯 JVM**：EXIF orientation → 旋转角 + 翻转（表错了竖拍就躺倒，单测守着）
 ├── EmbeddedJpeg.kt        **纯 JVM**：从任意文件里扫出最大的内嵌 JPEG（NEF 出图的唯一通路，单测守着）
 ├── FtpEngine.kt           纯 JVM：FtpServer 配置/生命周期 + 单线程入库 executor + retryPending()
-├── SimpleUserManager.kt   单用户明文认证 + 可选的匿名账号（坑最密集的地方，见 §5）
+├── SimpleUserManager.kt   单用户明文认证 + 可选的匿名账号（坑最密集的地方，见 §4）
 ├── SinkFtplet.kt          上传回调：CWD/STOR 自动建目录，把文件丢给 executor；顺带数控制连接数（相机连没连）
 ├── HotspotWatch.kt        热点=开关：广播 + 回前台对齐 → 起/停 FtpService；HotspotReceiver 是清单里那份
 ├── FtpService.kt          前台服务 connectedDevice、静音常驻通知、wakelock、START_STICKY
-├── FtpState.kt            StateFlow 单例状态通道（服务→UI；另存相机会话数 / 上次连接时间）；「最近收到」落盘在 `filesDir/recent.bin`（§3.23）
-├── NetworkInfo.kt         枚举 IPv4、过滤虚拟网卡、识别热点网卡（AP 专有名直接定案、wlanN 排除 STA，见 §3.20 / §5）
+├── FtpState.kt            StateFlow 单例状态通道（服务→UI；另存相机会话数 / 上次连接时间）；「最近收到」落盘在 `filesDir/recent.bin`（§2.23）
+├── NetworkInfo.kt         枚举 IPv4、过滤虚拟网卡、识别热点网卡（AP 专有名直接定案、wlanN 排除 STA，见 §2.20 / §4）
 ├── SquareFrameLayout.kt   方图容器：网格 3 列等宽 + 每格 1:1
 └── MainActivity.kt        单屏 UI
 app/src/main/res/
 ├── values/colors.xml + values-night/colors.xml   全部颜色（cam_* 命名，深浅两套）
 ├── values/themes.xml      Theme.CamFtp：M3 槽位映射 + 状态栏/导航栏图标明暗
-├── layout/activity_main.xml   相机连接面板（整屏主角，§3.26）→ 热点设置按钮 → 相机读数卡 → 折叠的高级设置 → 最近收到（网格 + 失败小字）
+├── layout/activity_main.xml   相机连接面板（整屏主角，§2.26）→ 热点设置按钮 → 相机读数卡 → 折叠的高级设置 → 最近收到（网格 + 失败小字）
 └── layout/item_recent.xml     「最近收到」的一格：圆角方图 + 后缀徽标 + 文件名
-app/src/test/java/.../FtpEngineTest.kt   10 个 JVM 用例（FTP 引擎全流程，含匿名登录开关两种状态、会话数回调）
+app/src/test/java/.../FtpEngineTest.kt   11 个 JVM 用例（FTP 引擎全流程，含匿名登录开关两种状态、会话数回调）
 app/src/test/java/.../FtpStateTest.kt     4 个：自检/真图计数的口径、会话数增量（不变负数、不断清「上次连接」）、条目/缩略图落盘往返、旧格式当没存过
 app/src/test/java/.../EmbeddedJpegTest.kt 4 个：内嵌 JPEG 抽取（挑最大的、没图的返回 null、假命中不算、跨 chunk 边界）
 app/src/test/java/.../ExifTransformTest.kt 3 个：EXIF 方向表（八种取向、只有 90 的倍数、没定义的当正常）
@@ -92,7 +63,7 @@ app/src/test/java/.../NetworkInfoTest.kt 5 个：热点网卡识别（小米 wla
 
 ---
 
-## 3. 关键设计决策（改代码前先读）
+## 2. 关键设计决策（改代码前先读）
 
 1. **`FtpEngine` 不 import 任何 `android.*`** → 能跑 JVM 单测。这条破了就没法测。
 2. **入库 executor 在 `FtpEngine` 里**（单线程、保序）。`Ftplet` 回调跑在 MINA IO 线程上，绝不能阻塞；放在引擎里，任何 `Sink` 实现都不用操心线程。
@@ -111,33 +82,33 @@ app/src/test/java/.../NetworkInfoTest.kt 5 个：热点网卡识别（小米 wla
 
 比 v1 设计多做的：自检按钮、CWD 自动建目录、残留文件重试。
 
-15. **UI 视觉约定**（界面重构后定的，改界面前先看这条）：颜色只写在 `values/colors.xml` 与 `values-night/colors.xml`（`cam_*` 命名），`Theme.CamFtp` 负责把它们映射到 M3 槽位，**别在 layout 里写死颜色**；屏幕从上到下 = 相机连接面板（§3.26）→ 热点设置按钮 → 相机读数卡 → 折叠的高级设置 → 最近收到，全程左对齐；**整屏只留一个视觉高峰，而这个高峰是靠「底色」拿的，不是靠字号**：连接面板是整屏唯一一块暗色，白卡只是「往相机里填什么」，两块各管一事；地址读数保持 34sp 等宽不缩（相机要照着输）；状态只用颜色编码不用装饰；等宽字体只用于地址/端口/账号/事件这些要逐字符比对的地方；配置类低频操作一律进折叠区，校验失败时自动展开（否则错误提示在收起的区域里，用户看不见）。**大字读数必须显式写 `android:lineHeight`**（不写就是赌 ROM 的字体度量，见 §5）；**「热点」标记写在读数卡标题行右侧**：34sp 等宽下 `10.130.223.120` 已占满卡片（实测 953/964px），tag 跟地址同行只会被挤出屏幕。
-16. **自检按钮是「情境化」的，不是设置项**：它长在「最近收到」区块里（配置类操作才进折叠区），只在 `FtpState.Snapshot.anyStored == false`（本进程还没有任何成功入库）时出现 —— 收到真图或自检成功即自动收起，**自检失败则留在列表下可重试**（失败不能把唯一的自检入口关掉）。显隐复用已有状态（`anyStored`），**跟着「最近收到」一起落盘**（§3.23）：用户明确要求 —— 自检成功过就别在重启后再冒出来问一遍（代价：「想再自检一次」从此没有入口，要清 App 数据，这是用户点的取舍）。自检结果同时往事件列表写一条 `Event(name = "测试图", counts = false)`：`counts = false` 保证它不算进「已收到 N 张」（`FtpStateTest` 守着这两条）。
+15. **UI 视觉约定**（界面重构后定的，改界面前先看这条）：颜色只写在 `values/colors.xml` 与 `values-night/colors.xml`（`cam_*` 命名），`Theme.CamFtp` 负责把它们映射到 M3 槽位，**别在 layout 里写死颜色**；屏幕从上到下 = 相机连接面板（§2.26）→ 热点设置按钮 → 相机读数卡 → 折叠的高级设置 → 最近收到，全程左对齐；**整屏只留一个视觉高峰，而这个高峰是靠「底色」拿的，不是靠字号**：连接面板是整屏唯一一块暗色，白卡只是「往相机里填什么」，两块各管一事；地址读数保持 34sp 等宽不缩（相机要照着输）；状态只用颜色编码不用装饰；等宽字体只用于地址/端口/账号/事件这些要逐字符比对的地方；配置类低频操作一律进折叠区，校验失败时自动展开（否则错误提示在收起的区域里，用户看不见）。**大字读数必须显式写 `android:lineHeight`**（不写就是赌 ROM 的字体度量，见 §4）；**「热点」标记写在读数卡标题行右侧**：34sp 等宽下 `10.130.223.120` 已占满卡片（实测 953/964px），tag 跟地址同行只会被挤出屏幕。
+16. **自检按钮是「情境化」的，不是设置项**：它长在「最近收到」区块里（配置类操作才进折叠区），只在 `FtpState.Snapshot.anyStored == false`（本进程还没有任何成功入库）时出现 —— 收到真图或自检成功即自动收起，**自检失败则留在列表下可重试**（失败不能把唯一的自检入口关掉）。显隐复用已有状态（`anyStored`），**跟着「最近收到」一起落盘**（§2.23）：自检成功过就不在重启后再问一遍（代价：想再自检要清 App 数据）。自检结果同时往事件列表写一条 `Event(name = "测试图", counts = false)`：`counts = false` 保证它不算进「已收到 N 张」（`FtpStateTest` 守着这两条）。
 
 17. **「相机连上了没」是数出来的，不是猜的**：`SinkFtplet.onConnect/onDisconnect` → `FtpState.clientDelta(±1)`。jar 反编译实查过：只有 `DefaultFtpHandler` 调 ftplet 的 connect/disconnect，且只在 `sessionOpened` / `sessionClosed` —— 数据连接不触发，所以是精确配对（**别改成 `onLogin/onLogout`**：登出和断线是两条路，容易减重）。`lastConnectAt` 断开时**不清**，UI 才能说「相机没连着 · 上次连接 17:41」；服务重启时 `clients` 归零。UI 只当它是「有/没活动」的实证，不保证相机侧真的在拍。
-18. **热点没开 = 连接面板说「需要开启热点」（`status_need_hotspot`）+ 面板下常驻的「打开热点设置」按钮**：相机只能连热点，不在热点上那个 IP 对相机**完全没用**，所以 34sp 读数一并收起来，读数卡里只留一行引导（`camera_need_hotspot`）+ 一行 `当前网卡：…` 兜底（热点探测靠「网卡名形状 + 排除当前 STA」，换 ROM 猜错时地址还抄得到 —— 小米 MIX Flip 2 上这条兜底真救了场：界面里那句 `当前网卡：192.168.1.103(wlan0) 10.130.223.120(wlan2)` 一眼看出热点是 wlan2，这是不把兜底删掉的理由）。**原来那张错误色警示卡已删**：它跟面板说的是同一件事，同一句提示不占两处；面板状态词（含这四种态）的唯一出处是 `updateCameraHint()`（`render()` 别再自己 setText，会被它盖掉）。文案铁律：只说下一步该干什么，**不解释你观察到了什么网络状态**（用户原话：写「连的是别的网络」「地址会显示在下面」都没意义；上一版就因为解释句太长被退过两回）。
+18. **热点没开 = 连接面板说「需要开启热点」（`status_need_hotspot`）+ 面板下常驻的「打开热点设置」按钮**：相机只能连热点，不在热点上那个 IP 对相机**完全没用**，所以 34sp 读数一并收起来，读数卡里只留一行引导（`camera_need_hotspot`）+ 一行 `当前网卡：…` 兜底（热点探测靠「网卡名形状 + 排除当前 STA」，换 ROM 猜错时地址还抄得到 —— 小米 HyperOS 上正是靠它看出热点网卡是 `wlan2`，别删）。**原来那张错误色警示卡已删**：它跟面板说的是同一件事，同一句提示不占两处；面板状态词（含这四种态）的唯一出处是 `updateCameraHint()`（`render()` 别再自己 setText，会被它盖掉）。文案铁律：只说下一步该干什么，**不解释观察到的网络状态**（写「连的是别的网络」「地址会显示在下面」都没意义，解释句太长会被打回）。
 
-19. **按钮不放卡里，也不跟卡一起隐显**：「打开热点设置」常驻在卡下面。卡是「现在缺什么」的提醒，按钮是「该怎么办」的动作，拆成两行各司其职；按钮跟着卡一起出现/消失的话，热点开着时就没地方改热点设置了（关掉、换密码都要回到这个页）。同理**不放开始/停止按钮** —— 那是热点的事（§3.20）。
+19. **按钮不放卡里，也不跟卡一起隐显**：「打开热点设置」常驻在卡下面。卡是「现在缺什么」的提醒，按钮是「该怎么办」的动作，拆成两行各司其职；按钮跟着卡一起出现/消失的话，热点开着时就没地方改热点设置了（关掉、换密码都要回到这个页）。同理**不放开始/停止按钮** —— 那是热点的事（§2.20）。
 
-20. **「什么时候开始接收」只有一条规则：热点开着就该在收**（`HotspotWatch`）。触发点两个：① 系统广播 `WIFI_AP_STATE_CHANGED` / `TETHER_STATE_CHANGED`（清单里声明了 `HotspotReceiver` 一份、`attach()` 在 application context 上挂运行时接收器一份 —— **实测干活的是后者**：清单那份每次都被 `skipped by policy at enqueue: Background execution not allowed` 拦掉（§5）。**小米 HyperOS 更狠：App 退到后台（`am get-standby-bucket` = 40 RARE）后运行时那份也一起拦**，所以「服务在跑时关热点自动停」照常、「服务已停 + App 在后台时开热点自动起」在小米上不会发生，兜底是打开 App（见 §5 / §6）；② 回到前台（`MainActivity.onResume → sync()`）、服务自己被拉回来时（`FtpService.start()` 的兵底检查）。判定一律**重新扫网卡**（`NetworkInfo.ipv4(context)`：`ap0` 这类 AP 专有名直接定案，只有 `wlanN` 才去比对「谁在连 Wi-Fi」），广播里带的数据只当闹钟；**唯一例外**是广播明说 `DISABLING/DISABLED/FAILED` → 直接停（那时热点网卡还挂着几百毫秒，等扫描会把这次「停」漏掉，通知栏就挂着一条假的「正在接收」）。`serviceAction()` 是唯一规则来源，`HotspotWatchTest` 守着（能收没起→起、不能收在跑→停、其余不动）。**别再加手动开关**：有按钮就得回答「用户按了停止之后广播来了要不要再起」，而这个语义没有好答案 —— 用户的习惯已经统一成「关热点就是停」。曾经用 `FLAG_DEBUGGABLE` 放行「家里 Wi-Fi 直连 2121」跑 curl 回归，结果没热点时状态栏也报「正在接收」，跟警示卡自相矛盾 → 删了（见 §5）。要加开发口子先自问：它会不会出现在用户界面里。
+20. **「什么时候开始接收」只有一条规则：热点开着就该在收**（`HotspotWatch`）。触发点两个：① 系统广播 `WIFI_AP_STATE_CHANGED` / `TETHER_STATE_CHANGED`（清单里声明了 `HotspotReceiver` 一份、`attach()` 在 application context 上挂运行时接收器一份 —— **实测干活的是后者**：清单那份每次都被 `skipped by policy at enqueue: Background execution not allowed` 拦掉（§4）。**小米 HyperOS 更狠：App 退到后台（`am get-standby-bucket` = 40 RARE）后运行时那份也一起拦**，所以「服务在跑时关热点自动停」照常、「服务已停 + App 在后台时开热点自动起」在小米上不会发生，兜底是打开 App（见 §4 / §5）；② 回到前台（`MainActivity.onResume → sync()`）、服务自己被拉回来时（`FtpService.start()` 的兵底检查）。判定一律**重新扫网卡**（`NetworkInfo.ipv4(context)`：`ap0` 这类 AP 专有名直接定案，只有 `wlanN` 才去比对「谁在连 Wi-Fi」），广播里带的数据只当闹钟；**唯一例外**是广播明说 `DISABLING/DISABLED/FAILED` → 直接停（那时热点网卡还挂着几百毫秒，等扫描会把这次「停」漏掉，通知栏就挂着一条假的「正在接收」）。`serviceAction()` 是唯一规则来源，`HotspotWatchTest` 守着（能收没起→起、不能收在跑→停、其余不动）。**别再加手动开关**：有按钮就得回答「用户按了停止之后广播来了要不要再起」，而这个语义没有好答案 —— 用户的习惯已经统一成「关热点就是停」。曾经用 `FLAG_DEBUGGABLE` 放行「家里 Wi-Fi 直连 2121」跑 curl 回归，结果没热点时状态栏也报「正在接收」，跟警示卡自相矛盾 → 删了（见 §4）。要加开发口子先自问：它会不会出现在用户界面里。
 
 21. **不熄屏（前台常亮）用 layout 的 `android:keepScreenOn`，不写 `FLAG_KEEP_SCREEN_ON` 代码**：`activity_main.xml` 根 ScrollView 上一个属性，系统按「窗口可见」判定 —— 退到后台 / 息屏后自动失效，不用在 `onResume`/`onPause` 里配对加清标志（配对漏一边就是后台把用户屏幕焊死）。它跟服务是两件事：**息屏接收照旧**（前台服务管），常亮只管「App 打开着的时候别灭」。
 
-22. **「最近收到」是一个 3 列缩略图网格**（不是文本日志）：`MainActivity.renderGrid()` 按行拼 `LinearLayout`（每格 `item_recent.xml`），格子 = 圆角 12dp 的 `MaterialCardView`（水波纹自带点击反馈，`cardElevation=0`、无描边 —— **整屏唯一的高峰还是连接面板那块暗底**）+ `SquareFrameLayout` 保证 1:1 + 下面一行等宽 11sp 文件名（`ellipsize=middle`：同场景连拍的一串 `DSC_18xx` 靠图分不出来）。**成功条目不再显示时间与目录**：目录就是配置的 `DCIM/<目录>`（每行都一样），「什么时候收的」图本身带着；`Event.at` 仍然存在，只给失败条目用。**失败条目在网格下方走回日志小字**（`eventLog`：`HH:mm:ss ✗ 文件名 原因`，非今天带月日；固定 24 小时制 `SimpleDateFormat` 而不是 `android.text.format.DateFormat` —— 12/24 小时制在 ROM 上不一致，跟 §5 行高那条坑同源）：它们没有图，时间和原因是「相机传了但没进相册」的唯一线索，但**不占格位**（否则失败条目会挤掉照片）。出不了图的格子写后缀（`NEF`/`MP4`/`TXT`/`FILE`），比通用破图图标说得清楚。**不引 RecyclerView**（material 只带进来一个 1.1.0 的老版本，12 格整块重建更省事）；最后一行不满要补 `Space` 空位，否则那几个格子会被拉宽、跟上面几行对不齐。
+22. **「最近收到」是一个 3 列缩略图网格**（不是文本日志）：`MainActivity.renderGrid()` 按行拼 `LinearLayout`（每格 `item_recent.xml`），格子 = 圆角 12dp 的 `MaterialCardView`（水波纹自带点击反馈，`cardElevation=0`、无描边 —— **整屏唯一的高峰还是连接面板那块暗底**）+ `SquareFrameLayout` 保证 1:1 + 下面一行等宽 11sp 文件名（`ellipsize=middle`：同场景连拍的一串 `DSC_18xx` 靠图分不出来）。**成功条目不再显示时间与目录**：目录就是配置的 `DCIM/<目录>`（每行都一样），「什么时候收的」图本身带着；`Event.at` 仍然存在，只给失败条目用。**失败条目在网格下方走回日志小字**（`eventLog`：`HH:mm:ss ✗ 文件名 原因`，非今天带月日；固定 24 小时制 `SimpleDateFormat` 而不是 `android.text.format.DateFormat` —— 12/24 小时制在 ROM 上不一致，跟 §4 行高那条坑同源）：它们没有图，时间和原因是「相机传了但没进相册」的唯一线索，但**不占格位**（否则失败条目会挤掉照片）。出不了图的格子写后缀（`NEF`/`MP4`/`TXT`/`FILE`），比通用破图图标说得清楚。**不引 RecyclerView**（material 只带进来一个 1.1.0 的老版本，12 格整块重建更省事）；最后一行不满要补 `Space` 空位，否则那几个格子会被拉宽、跟上面几行对不齐。
 
-23. **「最近收到」落盘**：`FtpState.attach(filesDir)`（`MainActivity.onCreate` + `FtpService.onCreate` 各一次，幂等；服务可能先于 UI 起来），条目 / `received` / `anyStored` 一起存 —— 重启 App 列表和「已收到 N 张」都不清空。格式是 `DataOutputStream` 的定长字段、开头 `MAGIC`（当前 = 2），**每条末端是缩略图**（`writeInt(长度) + 字节`，0 = 没有）。**缩略图必须跟条目一起存**：原图被相册删掉后网格照样要显示它，而且这样就没有「缩略图缓存目录」的生命周期问题（上限就 12 条，每次落盘整块重写，永不留孤儿文件；代码里留了 `ponytail:` 注记）。**读到不认识的 `MAGIC` 就当没存过 —— 不兼容旧格式（用户明确要求，别好心加回兼容分支，加了就把旧格式永久钉死）**：升级后历史条目、已收到张数、`anyStored` 归零一次，代价是「写入测试图」按钮重冒一次（收到一张新图后照旧收起）。上限 12 = 3 列的整 4 行。**别改成 SharedPreferences + JSON**：`org.json` 在 JVM 单测里是桩，一用 `FtpStateTest` 就废；`writeUTF` 自带长度前缀，文件名里带制表符换行也不串行。落盘失败全吞（`runCatching`）：丢的只是历史，不能因为写文件失败把接收链路带停。**会话数 / `lastConnectAt` 不落盘** —— 那是「这一次运行」的实况，服务重启就该归零（§3.17）。
+23. **「最近收到」落盘**：`FtpState.attach(filesDir)`（`MainActivity.onCreate` + `FtpService.onCreate` 各一次，幂等；服务可能先于 UI 起来），条目 / `received` / `anyStored` 一起存 —— 重启 App 列表和「已收到 N 张」都不清空。格式是 `DataOutputStream` 的定长字段、开头 `MAGIC`（当前 = 2），**每条末端是缩略图**（`writeInt(长度) + 字节`，0 = 没有）。**缩略图必须跟条目一起存**：原图被相册删掉后网格照样要显示它，而且这样就没有「缩略图缓存目录」的生命周期问题（上限就 12 条，每次落盘整块重写，永不留孤儿文件；代码里留了 `ponytail:` 注记）。**读到不认识的 `MAGIC` 就当没存过 —— 不兼容旧格式（别好心加回兼容分支，加了就把旧格式永久钉死）**：升级后历史条目、已收到张数、`anyStored` 归零一次，代价是「写入测试图」按钮重冒一次（收到一张新图后照旧收起）。上限 12 = 3 列的整 4 行。**别改成 SharedPreferences + JSON**：`org.json` 在 JVM 单测里是桩，一用 `FtpStateTest` 就废；`writeUTF` 自带长度前缀，文件名里带制表符换行也不串行。落盘失败全吞（`runCatching`）：丢的只是历史，不能因为写文件失败把接收链路带停。**会话数 / `lastConnectAt` 不落盘** —— 那是「这一次运行」的实况，服务重启就该归零（§2.17）。
 
-24. **点「最近收到」的一格 → 打开那张图**（`MainActivity.openStored`）：整块格子是热区（`MaterialCardView` 的 `setOnClickListener`），**只有 `uri` 非空的格子才可点**，所以每条成功的入库都必须带上 `uri`（新增调用点别忘了）。打开前先 `openAssetFileDescriptor(uri, "r")` 探活：图在相册里被删掉后 `ACTION_VIEW` 照样启动得起来（查看器空转或自己报错，用户看到的是「应用打不开这个文件」而不是我们的提示），探不到就 `Toast`「文件已被删除」（`event_gone`），不启查看器 —— 注意**缩略图还在不代表原图还在**（§3.25），这两件事分得很开：格子永远画得出来，点开才知道文件死没死。
+24. **点「最近收到」的一格 → 打开那张图**（`MainActivity.openStored`）：整块格子是热区（`MaterialCardView` 的 `setOnClickListener`），**只有 `uri` 非空的格子才可点**，所以每条成功的入库都必须带上 `uri`（新增调用点别忘了）。打开前先 `openAssetFileDescriptor(uri, "r")` 探活：图在相册里被删掉后 `ACTION_VIEW` 照样启动得起来（查看器空转或自己报错，用户看到的是「应用打不开这个文件」而不是我们的提示），探不到就 `Toast`「文件已被删除」（`event_gone`），不启查看器 —— 注意**缩略图还在不代表原图还在**（§2.25），这两件事分得很开：格子永远画得出来，点开才知道文件死没死。
 
 25. **缩略图在入库时自己生成、存进落盘列表**（`Thumbnailer`），**不用 `ContentResolver.loadThumbnail`**：① NEF / RAW 系统解码器解不了（`BitmapFactory` 不认 TIFF），只有抽内嵌预览才有图（`EmbeddedJpeg`，纯 JVM + 单测）；② 网格必须在原图被相册删掉之后照样显示 —— 那这份缩略图只能由我们自己留。生成时机在 `MediaStoreSink` **删源文件之前**（删了就再也没得抽），`Thumbnailer` 自己吞掉所有异常返回 null（缩略图是装饰，绝不能让入库背锅；它跑在入库 executor 上，不占 MINA IO 线程）。规格：长边 384px / JPEG q=80（≈30KB）。UI 侧按 `uri` 做 `LruCache`（8MB）、在 `Dispatchers.IO` 上解码，解回来**认 `view.tag` 不认 view** —— 每次入库都整块重建网格，回调回来时那个格子可能已经不在屏幕上了。
    ③ **方向得自己修**：`BitmapFactory` 不应用 EXIF orientation（系统相册会转，所以这个坑只在这一层看得见），不修的话**竖拍的照片在网格里是躺倒的**，而方形裁剪下这就是构图错不错的问题。做法：用 `android.media.ExifInterface` 读方向（文件路径给普通图片，`ByteArrayInputStream` 给 RAW 抽出来的预览 JPEG —— 相机一般把主图的 EXIF 也抄了一份进去），按 [ExifTransform] 的表用 `Matrix` 转。读不到 / 格式不支持就当正常（装饰品不能因为读 EXIF 失败就把图丢了）。**先缩后转**：转一张 8000×6000 的原图要多占几十 MB。
    ④ **RAW 不认后缀白名单**：`BitmapFactory` 解不出来就去 `EmbeddedJpeg.largest()`，谁嵌了 JPEG 谁就有图 —— 换品牌/换机型不用改代码（原来那 10 个后缀的白名单已经删了）。不认后缀的视频（`.mts` 等）按 `VIDEO` 集合兜底去试首帧，否则会把一个几 GB 的文件当图片整读一遍找 JPEG；找预览前还有一道 256MB 的大小阀（入库是单线程，绝不能被一个大文件堵住）。
 
-26. **相机连接状态有专门的面板，它是整屏主角**（用户要求：连接状态是最重要的信息，得专门突出）。原来那行 22sp 的「未接收 / 正在接收」已经删掉（旧字符串都没了；「正在接收」三个字后来以面板状态词 `status_transferring` 回来，见下 ②），换成屏幕最上面一块暗底面板：① 底色 `cam_instrument`，**两个主题下都是暗的**（夜里不能被一整块亮色砸到；也正因为这样它跟两张白卡不靠字号就能分层）；② 26sp 状态词 + 等宽副行，五态：`status_need_hotspot`（暗字）/ `status_camera_waiting`（亮字）/ `status_camera_online`（绿字）/ `status_camera_offline`（亮字）/ `status_transferring`（绿字，`STOR` 一开始就切过来、传完 / 传到一半断线切回去），副行只在传输中报正在传的文件名、或「断开但连过」时报「上次连接 HH:mm」（**不再报「已收到 N 张」**：张数归整个会话，跟面板当下说的是哪一态没关系）；③ **只有一处动效**：连上时左边那颗灯呼吸（`setLinkLamp()`，`ValueAnimator.areAnimatorsEnabled()` 为假就常亮），`lampOn` 挡重复重启；④ 状态词只有 `updateCameraHint()` 一处出处（它才知道有没有热点），字色语义只三个：连上/传输中=绿（跟灯同色）、等/断开=亮字、缺热点=暗字；⑤ 副行时间戳用固定 24 小时制 `SimpleDateFormat`（同 §3.22）。**传输中状态来自 `SinkFtplet` 的 `onTransfer`（`STOR` 那一刻报名字、传完清空，见 §3.26）**。**别把 IP 搬进面板、也别把面板字号缩下去给地址让路**：两者分工是「暗面板 = 现在怎么样 / 白卡 = 往相机里填什么」。
+26. **相机连接状态有专门的面板，它是整屏主角**（连接状态是整屏最重要的一条信息）。原来那行 22sp 的「未接收 / 正在接收」已删（「正在接收」后来以面板状态词 `status_transferring` 回来，见 ②），换成屏幕最上面一块暗底面板：① 底色 `cam_instrument`，**两个主题下都是暗的**（夜里不能被一整块亮色砸到；也正因为这样它跟两张白卡不靠字号就能分层），但**色相按状态换**（`updateCameraHint()` 里 `backgroundTintList`）：闲置 `cam_instrument` 中性墨蓝 / 连上·传输中 `cam_instrument_live` 暗绿 / 缺热点 `cam_instrument_alert` 暗红，三档明度都在同一条暗带上 —— 要的是「一眼看出现在属于哪一类」，**不是换一块亮色**（夜里那档还比白天再暗一档）；② 26sp 状态词 + 等宽副行，五态：`status_need_hotspot`（暗字）/ `status_camera_waiting`（亮字）/ `status_camera_online`（绿字）/ `status_camera_offline`（亮字）/ `status_transferring`（绿字，`STOR` 一开始就切过来、传完 / 传到一半断线切回去），副行只在传输中报正在传的文件名、或「断开但连过」时报「上次连接 HH:mm」（**不再报「已收到 N 张」**：张数归整个会话，跟面板当下说的是哪一态没关系）；③ **只有一处动效**：连上时左边那颗灯呼吸（`setLinkLamp()`，`ValueAnimator.areAnimatorsEnabled()` 为假就常亮），`lampOn` 挡重复重启；④ 状态词只有 `updateCameraHint()` 一处出处（它才知道有没有热点），字色语义只三个：连上/传输中=绿（跟灯同色）、等/断开=亮字、缺热点=暗字，且与底色同一个 `when`（`hotspotIface == null` 在最前：没热点时即使还挂着残留会话也不报绿）；⑤ 副行时间戳用固定 24 小时制 `SimpleDateFormat`（同 §2.22）。**传输中状态来自 `SinkFtplet` 的 `onTransfer`（`STOR` 那一刻报名字、传完清空，见 §2.26）**。**别把 IP 搬进面板、也别把面板字号缩下去给地址让路**：两者分工是「暗面板 = 现在怎么样 / 白卡 = 往相机里填什么」。
 
 ---
 
-## 4. 协议与平台事实（有出处，改配置时别推翻）
+## 3. 协议与平台事实（有出处，改配置时别推翻）
 
 | 事实 | 出处 |
 | --- | --- |
@@ -151,7 +122,7 @@ app/src/test/java/.../NetworkInfoTest.kt 5 个：热点网卡识别（小米 wla
 
 ---
 
-## 5. 🐞 踩过的坑（**照 v1 文档写代码会崩**，全部实测）
+## 4. 🐞 踩过的坑（**照 v1 文档写代码会崩**，全部实测）
 
 | 问题 | 现象 / 修法 |
 | --- | --- |
@@ -168,7 +139,6 @@ app/src/test/java/.../NetworkInfoTest.kt 5 个：热点网卡识别（小米 wla
 | README 说 ColorOS 热点网段是 `192.168.43.1` | 实际是 **`ap0` / `10.129.14.x`**；同时还有 `wlan0`(家里 Wi-Fi)、`vgate0`、`ccmni*`(数据)、tun/gre/ifb/dummy 一堆虚拟网卡 —— 枚举 IPv4 必须黑名单过滤 + 热点名置顶 |
 | `getString(R.string.x, "2121")` 配 `%d` 占位符 | **一启动就闪退** `IllegalFormatConversionException: d != java.lang.String`。资源占位符类型必须和实参一致 |
 | 跳「热点设置」的 action 名**记错一个前缀就静默跑偏** | 实测这台 ColorOS 17：`com.android.settings.TETHER_SETTINGS` **无 App 注册**（启动必失败）；`android.settings.TETHER_SETTINGS` / `android.settings.OPLUS_TETHER_SETTINGS` 落到「网络共享」页；只有 `com.android.settings.WIFI_TETHER_SETTINGS` 直接是「个人热点」页；`Settings.Panel.ACTION_INTERNET_CONNECTIVITY` 这台机上 SystemUI 没注册（只提供音量面板）。旧代码三个候选全落空 → 用户点按钮看到的是 WiFi / 网络页。**验证方法**：`adb shell dumpsys package <pkg> \| grep -i tether` 看谁真的注册了 action，再用 `am start -a <action>` + `uiautomator dump` 看落点页面标题 |
-| `adb shell pm grant` 被拒（Android 17 + ColorOS） | 用 `adb install -g` |
 | M3 反色槽位的属性名是 `colorSurfaceInverse` / `colorOnSurfaceInverse` / `colorPrimaryInverse` | 写成 `colorInverseSurface` 之类会 `resource linking failed`（Material 1.12 的 R.txt 里只有前者） |
 | 没有 `?attr/materialButtonTonalStyle` 这个 attr | 想用 tonal 按钮直接写 `style="@style/Widget.Material3.Button.TonalButton"`；`colorPrimary` 那套 attr 都在，唯独按钮风格里只有 `materialButtonStyle` / `materialCardViewOutlinedStyle` / `borderlessButtonStyle` |
 | `targetSdk 36` 起系统**强制 edge-to-edge**（`windowOptOutEdgeToEdgeEnforcement` 在 Android 16+ 失效），内容画到状态栏底下被时钟压住；且 Material 1.12 的 M3 主题不设 `android:windowLightStatusBar`，浅色主题下白图标落在浅色背景上基本看不见 | ① `activity_main.xml` 的 ScrollView 加 `android:fitsSystemWindows="true"`，20dp 内边距**必须挪到内层 LinearLayout**（`computeSystemWindowInsets` 只在「该边 padding==0」时才补 inset，padding 留在 root 上会静默失效）；② 新增 `res/values/themes.xml` 的 `Theme.CamFtp`，`windowLightStatusBar` / `windowLightNavigationBar` = `?attr/isLightTheme`，Manifest 改用它 |
@@ -176,72 +146,52 @@ app/src/test/java/.../NetworkInfoTest.kt 5 个：热点网卡识别（小米 wla
 | 清单里声明热点广播，**根本收不到** | 实测（ColorOS 17 / Android 17）：`WIFI_AP_STATE_CHANGED state=10/11`、`TETHER_STATE_CHANGED` 都会发，但 `dumpsys activity broadcasts` 里清单那份每次都是 `skipped by policy at enqueue: Background execution not allowed`，投递的只有 `HotspotWatch.attach()` 挂的运行时接收器。结论：别只写清单接收器；进程被杀后切热点不会自动起（兜底是打开 App）。换 ROM 复验就看这句 DELIVERED / skipped |
 | 怕 Android 12+ 不允许后台起前台服务 | ColorOS 17 实测**放行**：`ActivityManager: Background started FGS: Allowed [... uidState: LAST; code:UID_VISIBLE ...]`（App 刚在前台待过就允许）。`HotspotWatch.start()` 仍包着 try/catch：真被拦也只丢一行日志，回前台 `sync()` 会补回来 |
 | 热点网卡名写死成名单 | 小米 MIX Flip 2 / HyperOS 3 把热点放在 **`wlan2`**（`dumpsys tethering`：`TetherState: wlan2 - TetheredState`），名单里只有 `ap0/swlan0/wlan1/...` → App 判成「没热点」：读数卡收起、服务不起，用户看到的就是「开了热点却显示未开」。修法：名字形状照抄系统自己的 `tetherableWifiRegexs: [wlan\d, softap\d, ap_br_wlan\d, ap_br_softap\d]`，再用 `ConnectivityManager` 里 `TRANSPORT_WIFI` 的网卡（STA）把它排除掉 —— `wlan2` 既可能是热点也可能是 STA，只能靠「哪张卡在连 Wi-Fi」分。`NetworkInfoTest` 守着 |
-| 拿 STA 名单去否决**所有**名字（修小米时顺手引入的回归） | ColorOS 17 上开了热点却显示「需要开启热点」：`ap0` 被当成 STA 排掉了。实测（2026-10-07 20:03 logcat）：`NetworkInfo: 网卡 ap0=10.129.14.60(热点), wlan0=192.168.1.104 ｜ STA [wlan0, ap0]` —— ColorOS **确实**把热点那张卡也算进 Wi-Fi 类型的网络（`wifiSta()` 取的就是「所有 `TRANSPORT_WIFI` 网络的 interfaceName」）。修法：STA 名单只用来判 `wlanN` 这种「热点和 STA 都可能叫」的名字；`ap`/`softap`/`swlan`/`wlan-ap`/`ap_br_*` 直接定案（没有任何 ROM 拿这些名字去连 Wi-Fi）。`NetworkInfoTest` 守着；下次换 ROM 复验就看那行日志的「｜ STA …」 |
-| 小米上 `wlan2` 的 IP 会不会热点关了还留着（留了就误报） | 不会：3 秒粒度采样，`wlan2=10.130.223.120` 随关热点消失、开热点回来（2026-10-07 19:06）。所以「名字像 AP + 有 IPv4」两个条件就够，不用额外记状态 |
-| HyperOS 把热点广播拦到「已退后台的 App」 | `dumpsys activity broadcasts` 实测：`SKIPPED terminal-enq ... #3: BroadcastFilter{... ReceiverList{... io.github.mangome.camftp}}` —— **运行时那份也拦**（ColorOS 只拦清单那份），`am get-standby-bucket` = 40（RARE）。服务在跑（FGS）时广播照常送达：19:12:16 `WIFI_AP_STATE_CHANGED state=10 → TETHER_STATE_CHANGED → state=11` → 服务自动停。对策：代码不动，README 里写「小米上想让开热点自动起，给 App 开自启动 / 后台策略无限制」 |
-| HyperOS 上 34sp 等宽粗体的**行高被量成 0.75×** | 地址读数上下被切掉（用户截图报「IP 显示不全」）。实测：`34sp`（fontScale 1.1 / 520dpi）只量出 91px 高，而其它字号都是 1.35~1.38×（22sp→101px、16sp→77px、13sp→64px）；描的字其实一直是 34sp（墨迹 85px = 0.7em ✔），就框子矮了。修法：`activity_main.xml` 里给 `addressValue` 显式 `android:lineHeight="44sp"` → 框 149px、墨迹居中（别指望 ROM 的字体度量） |
-| 小米上 `adb install -g`、`adb shell input tap` 都被拒 | `-g` → `SecurityException: ... INSTALL_GRANT_RUNTIME_PERMISSIONS`；`input tap` → `SecurityException: ... INJECT_EVENTS`（开发者选项里没开「USB 调试（安全设置）」就点不了）。所以：装包改用**同签名的 release 包**（`assembleRelease` + `install -r`，配置和已授权限都留着），点 UI 的活儿只能人肉干。**ColorOS 17 上 `input tap` 能点普通按钮，却触发不了 `ClickableSpan`**（点「最近收到」里的行毫无反应，看着像功能坏了）—— 验热区/链接一律用 `input motionevent DOWN x y` 再 `UP x y`（两条命令间隔 ~120ms），实测能打开图/弹 Toast。坐标从 `uiautomator dump` 的 `bounds` 取，别目测（截图缩比 + 状态栏能让目测偏出上百像素），也**别复用旧坐标**：列表会随新事件长高，旧坐标会点到隔壁行（或隔壁界面） |
-| debug 构建放行「家里 Wi-Fi 直连 2121」跑 curl 回归 | 没热点时状态栏也报「正在接收」，跟「需要开启热点」的警示卡自相矛盾，用户当场退回来。已删：接收只认热点网卡；真机回归改成让电脑连手机热点 |
+| 拿 STA 名单去否决**所有**名字（修小米时顺手引入的回归） | ColorOS 17 上开了热点却显示「需要开启热点」：`ap0` 被当成 STA 排掉了。实测（ColorOS 17 logcat）：`NetworkInfo: 网卡 ap0=10.129.14.60(热点), wlan0=192.168.1.104 ｜ STA [wlan0, ap0]` —— ColorOS **确实**把热点那张卡也算进 Wi-Fi 类型的网络（`wifiSta()` 取的就是「所有 `TRANSPORT_WIFI` 网络的 interfaceName」）。修法：STA 名单只用来判 `wlanN` 这种「热点和 STA 都可能叫」的名字；`ap`/`softap`/`swlan`/`wlan-ap`/`ap_br_*` 直接定案（没有任何 ROM 拿这些名字去连 Wi-Fi）。`NetworkInfoTest` 守着；下次换 ROM 复验就看那行日志的「｜ STA …」 |
+| 小米上 `wlan2` 的 IP 会不会热点关了还留着（留了就误报） | 不会：3 秒粒度采样，`wlan2=10.130.223.120` 随关热点消失、开热点回来。所以「名字像 AP + 有 IPv4」两个条件就够，不用额外记状态 |
+| HyperOS 把热点广播拦到「已退后台的 App」 | `dumpsys activity broadcasts` 实测：`SKIPPED terminal-enq ... #3: BroadcastFilter{... ReceiverList{... io.github.mangome.camftp}}` —— **运行时那份也拦**（ColorOS 只拦清单那份），`am get-standby-bucket` = 40（RARE）。服务在跑（FGS）时广播照常送达（`WIFI_AP_STATE_CHANGED state=10 → TETHER_STATE_CHANGED → state=11` → 服务自动停）。对策：代码不动，README 里写「小米上想让开热点自动起，给 App 开自启动 / 后台策略无限制」 |
+| HyperOS 上 34sp 等宽粗体的**行高被量成 0.75×** | 地址读数上下被切掉。实测：`34sp`（fontScale 1.1 / 520dpi）只量出 91px 高，而其它字号都是 1.35~1.38×（22sp→101px、16sp→77px、13sp→64px）；描的字其实一直是 34sp（墨迹 85px = 0.7em ✔），就框子矮了。修法：`activity_main.xml` 里给 `addressValue` 显式 `android:lineHeight="44sp"` → 框 149px、墨迹居中（别指望 ROM 的字体度量） |
+| debug 构建放行「家里 Wi-Fi 直连 2121」跑 curl 回归 | 没热点时状态栏也报「正在接收」，跟「需要开启热点」的提示自相矛盾，已删：接收只认热点网卡；真机回归改成让电脑连手机热点 |
 | 单测里 `javax.imageio` / `java.awt` 编译不过（`Unresolved reference 'image'`） | AGP 拿 android.jar 当 bootclasspath，`java.desktop` 不在单测的**编译**类路径上（Android 上本来也没有）。给 JPEG 造夹具 / 验证改用内置的 base64 最小 JPEG（1x1、160 字节：SOI 在 0、EOI 在末尾），断言「抽出来的字节和写进去的一模一样」—— 比解出像素尺寸更严 |
-| 想让网格显示刚收到的图，第一反应是 `ContentResolver.loadThumbnail`（minSdk 29 起可用、零依赖） | 对 **NEF 无效**：它走 MediaProvider 的解码器（`BitmapFactory`），而 `BitmapFactory` 不认 TIFF 系 RAW → 整天拍 NEF 的相机上传后是一整屏占位格。改成入库时自己生成、存进落盘列表（§3.25），顺带解决了「原图被相册删掉后网格空白」 |
-| **竖拍的照片在缩略图里躺倒**（所有品牌、所有格式的通用坑） | `BitmapFactory` 不应用 EXIF orientation，`ImageView` 也不会自己转 —— 系统相册里看着是对的，只有自己画的图会错。修法：自己读 `android.media.ExifInterface` + `Matrix` 转（§3.25 ③）；**不要指望 `ImageDecoder` 帮你转**：网上的说法是“API 28+ 会自动应用方向”，但查 AOSP 源码（`graphics/java/android/graphics/ImageDecoder.java` 与 `libs/hwui/jni/ImageDecoder.cpp`）里一处 `orientation` 都没有（`grep -i orienta` 为空），所以没赌它 |
+| 想让网格显示刚收到的图，第一反应是 `ContentResolver.loadThumbnail`（minSdk 29 起可用、零依赖） | 对 **NEF 无效**：它走 MediaProvider 的解码器（`BitmapFactory`），而 `BitmapFactory` 不认 TIFF 系 RAW → 整天拍 NEF 的相机上传后是一整屏占位格。改成入库时自己生成、存进落盘列表（§2.25），顺带解决了「原图被相册删掉后网格空白」 |
+| **竖拍的照片在缩略图里躺倒**（所有品牌、所有格式的通用坑） | `BitmapFactory` 不应用 EXIF orientation，`ImageView` 也不会自己转 —— 系统相册里看着是对的，只有自己画的图会错。修法：自己读 `android.media.ExifInterface` + `Matrix` 转（§2.25 ③）；**不要指望 `ImageDecoder` 帮你转**：网上的说法是“API 28+ 会自动应用方向”，但查 AOSP 源码（`graphics/java/android/graphics/ImageDecoder.java` 与 `libs/hwui/jni/ImageDecoder.cpp`）里一处 `orientation` 都没有（`grep -i orienta` 为空），所以没赌它 |
 | 按品牌列 RAW 后缀白名单（`nef/cr2/arw/dng/...`） | 不是坏事但守不住：`.raw`/`.tif`/`.sr2`/`.rwl` 等一漏就是灰格。改成「`BitmapFactory` 解不出来就找内嵌 JPEG」，反正这条路本来就只依赖“文件里有没有一段完整 JPEG”，跟谁家的 RAW 无关 |
-
-**顺带的事实**：这台机器开着热点时 `wlan0` 仍连着家里 Wi-Fi（驱动支持 AP+STA），所以无线调试不会因为开热点而断。
 
 相机侧（不是代码问题，是使用问题）的坑见 [`camera-setup.md`](./camera-setup.md)。
 
 ---
 
-## 6. 验收矩阵
+## 5. 验收与已知风险
 
-### 已验证（真机 一台 OPPO ColorOS 机 + Nikon Z50II）
+### 已验证（要点）
 
-- 电脑侧：被动 / 主动模式上传 → `226`，落 `/sdcard/DCIM/CamFtp/`，文件权限 `media_rw`（真进 MediaStore）；`.NEF` → `DCIM`（mime `image/x-nikon-nef`）、未知后缀 `.txt` → `Download`；子目录上传（路径带目录与 `CWD` 两种）自动建目录；私有目录 `filesDir/ftp` 无残留
-- 匿名登录（App 默认已勾上）：保存（服务热重启）后，匿名 PASV / 主动模式上传都 `226` 入库；取消勾选后匿名登录回 `530`、具名账号照常 `226`（真机 2026-10-07，另有 2 个 JVM 用例守这两条）
-- 服务：通知 `importance=LOW` / 静音 / ongoing / 点击回 App；前台服务类型 `0x10`（connectedDevice）；改端口 2121→2122 自动热重启（新端口通、旧端口拒连）
-- UI：热点识别（地址行显示 `10.129.14.x（热点）`，虚拟网卡被过滤）、配置校验、自检图入库、事件列表
-- 「打开热点设置」按钮 → ColorOS「个人热点」页（`com.android.settings.WIFI_TETHER_SETTINGS`；即使用该设置应用已停在「网络共享」页，再点也能切过去）
-- **相机真人验收**：Z50II 经手机热点连 `10.129.14.x:2121`，回放上传成功，相册看到原文件名；连续多张 + 息屏不断线。2026-10-07 新版又跑一遍：`DSC_1794/1795/1798.NEF` 入库 `DCIM/CamFtp`（权限 `media_rw`、mime `image/x-nikon-nef`），私有目录 `filesDir/ftp` 无残留
-- **ColorOS 回归复验**（2026-10-07 20:03，修掉「STA 名单误杀 ap0」之后，release 包同签名覆盖装）：开热点 → 界面「正在接收」+ `10.129.14.60` + 标题行右侧「热点」标记，Z50II 连上并传完 2 张（「相机已连接 · 已收到 2 张」）；logcat 那行 `网卡 ap0=10.129.14.60(热点), wlan0=192.168.1.104 ｜ STA [wlan0, ap0]` 就是这次回归的物证
-- **热点自动起停**（真机 2026-10-07，App 不在前台）：关热点 → 服务自动停（常驻通知消失）；再开热点 → 服务**自动起**，系统日志 `Background started FGS: Allowed [... uidState: LAST; code:UID_VISIBLE ...]`；回前台发现「热点开着但没在收」也会补起
-- **小米 HyperOS 3 / Android 16 复验**（Xiaomi MIX Flip 2，2026-10-07）：热点网卡 = `wlan2` / `10.130.223.120`（`dumpsys tethering` 佐证），界面显示「正在接收 + 10.130.223.120 + 标题行右侧热点标记」，警示卡消失、服务自动起（`isForeground=true types=0x00000010`、通知在）—— 修复前这里显示的是「需要开启热点」+ `192.168.1.103(wlan0)`
-- 小米上关热点：`HotspotWatch: 收到 WIFI_AP_STATE_CHANGED state=10 → TETHER_STATE_CHANGED → state=11`，服务与通知自动停 ✔；**服务停掉、App 退回后台后再开热点：广播被 HyperOS 拦掉，不会自动起**（预期行为，见 §5），打开 App 立刻补起 ✔
-- 上传回归（小米，电脑经家里 Wi-Fi 直连 `192.168.1.103:2121`）：`226`，`.txt` 落 `Download/CamFtp`（界面 `✓ regress.txt Download/CamFtp`、已收到 1 张）—— 验的是服务监听 + 入库链路；相机经热点那条仍以 Z50II 为准
-- 大字读数不截断（小米 34sp 行高 0.75× 那个坑）：`addressValue` 框 149px、墨迹 890..974（上下各留 30~35px，不再贴着框边）
-- **没热点时的引导**（真机 2026-10-07，手机连着家里 Wi-Fi、热点没开）：状态行「需要开启热点」（旧版这里是「未接收」+ 顶部错误色卡）+ 状态行下常驻「打开热点设置」；读数卡不显示那个用不上的 IP，兜底显示「当前网卡：192.168.1.103(wlan0)」（HyperOS 3 复验，截图 `temp/camftp-nohotspot.png`）
-- **相机连接状态**：`开始接收` 后显示「等待相机连接 · 已收到 0 张」；电脑裸 TCP 连 `2121`（只发 `USER`、未登录）2 秒内变成「相机已连接 · 已收到 0 张」；断开后变「相机没连着 · 上次连接 17:41 · 已收到 0 张」。服务内测：用 `adb shell input tap` 点按钮 + PowerShell `TcpClient` 手动开连接（App 的 FGS 不 exported，`am start-foreground-service` 会被拒）
-- **相机连接面板**（真机 ColorOS 17，2026-10-07，release 包同签名覆盖装）：等相机态（`temp/panel-waiting.png`，强停 App 重开后 `clients`/`上次连接`归零而「已收到 4 张」从落盘里读回来）/ 连上态（绿字 + 灯呼吸，`temp/panel-connected.png`）/ 断开态（「上次连接 20:53 · 已收到 4 张」，`temp/panel-dark.png` 顺带是深色主题）；深色主题下面板是比底色更沉的「槽」，没变成一块刺眼的亮板。**「需要开启热点」那一态只核对了文案与配色代码，没截真机图**（验它得关掉用户正在用的热点），下次顺手补
-- **「最近收到」每条带时间**（ColorOS 机，2026-10-07 20:06）——**该形态已被缩略图网格取代（见下面那条已验证）**：列表读出 `20:06:00 ✓ DSC_1795.NEF DCIM/CamFtp` / `20:05:58 ✓ 测试图 DCIM/CamFtp`，时间与入库时刻一致，与文件名/详情同行不折行（截图 `temp/events-time.png`）。注：这台机上装 debug 包会被拒（`INSTALL_FAILED_UPDATE_INCOMPATIBLE`，签名不同），走的是 release 包
-
-- **「最近收到」落盘**（ColorOS 17 真机，2026-10-07 20:42，release 包覆盖装）：点自检入库一条 + 相机经热点传了张 `DSC_1802.NEF` → 强停 App 重开（pid `8097`→`9435`），列表两条都在、「已收到 1 张」（自检图不计数）、自检按钮保持收起（`anyStored` 落盘）；`clients` / 「上次连接」按设计归零。**非今天带月日没验**（得隔天再看一眼）
-- **点「最近收到」的行**（ColorOS 17 真机，2026-10-07 20:50）——**点击从 `ClickableSpan` 换成了格子的 `setOnClickListener`（§3.24），探活逻辑没动**：图还在 → 打开系统相册；把 MediaStore 记录 `content delete` 掉再点 → `Toast`「文件已被删除」、焦点不动、不启查看器。造样本不用连热点（`adb forward` + `adb reverse`，见 §8），也不用删真图
-
-- **「最近收到」的缩略图网格**（OPPO ColorOS 17 真机，2026-10-07 21:12–21:14，release 包覆盖装，`adb install -r`）：① **NEF 出真图** —— 相机传的 `DSC_1793/1796/1800.NEF` 三张全渲染出来了（`EmbeddedJpeg` 在真 NEF 上成立，不是灰格）；② 几何对得上：格子实测 304×304px（1080px 宽画布、3 列、`@3x` 下 24px = 8dp 间距）；③ 强停重开，4 格和张数全在、**自检按钮保持收起**（`MAGIC=2` 落盘和 `anyStored` 都成立）；④ 点一格 → 系统相册打开该图（NEF 显示 RAW 角标）；⑤ 把自检图的 MediaStore 记录 `content delete` 掉后，格子里**缩略图照旧显示**，点它弹「文件已被删除」、不启查看器（当初放弃 `loadThumbnail` 就是为了这个）；⑥ 验证用自检图造样本，没删用户的真照片（`content delete` 要按 `_id` 删：`--where "_display_name='…'"` 里的单引号过 PowerShell + adb 会被剥掉，报 `Invalid token`，先 `--projection _id --where …` 拿到 id 再用 `--where _id=N`）
+- 电脑侧 curl：被动 / 主动模式、匿名、子目录（`CWD` 与路径两种）、`.NEF` → `DCIM/<目录>`（mime `image/x-nikon-nef`）、未知后缀 `.txt` → `Download/<目录>`，一律 `226` 入库、`filesDir/ftp` 无残留
+- **Nikon Z50II 真机经手机热点**：回放上传 JPEG + NEF 成功，相册见原文件名，连续多张 + 息屏不断线；NEF 在我们自己的缩略图网格里出真图（`EmbeddedJpeg` 成立）
+- 热点识别与自动起停：ColorOS（`ap0`）与 Xiaomi HyperOS 3（`wlan2`）两套 ROM 都验过；服务在跑时关热点 → 自动停
+- UI：连接面板五态（等待 / 连上 / 断开 / 传输中 / 缺热点，缺热点那态只核对了代码没截真机图）、「最近收到」缩略图网格（落盘、强停重开还在、点格打开原图、原图被删后弹「文件已被删除」）、自检按钮显隐与落盘、配置校验与热重启、「打开热点设置」直达 ColorOS「个人热点」页
+- 服务：通知 LOW / 静音 / ongoing，前台服务类型 `connectedDevice`，息屏接收照旧
 
 ### 未验证 / 已知风险（接手时先知道）
 
-1. 热点广播在 ColorOS 17 与 HyperOS 3 上都实测过（发得出来，投递情况见 §5），更老的 Android / 其它 ROM 未验：复验看 logcat 有没有 `HotspotWatch: 收到 …` + `dumpsys activity broadcasts` 里是 DELIVERED 还是 skipped；被拦也不致命（打开 App 那次 `sync()` 兜得住）
+1. 热点广播在 ColorOS 17 与 HyperOS 3 上都实测过（发得出来，投递情况见 §4），更老的 Android / 其它 ROM 未验：复验看 logcat 有没有 `HotspotWatch: 收到 …` + `dumpsys activity broadcasts` 里是 DELIVERED 还是 skipped；被拦也不致命（打开 App 那次 `sync()` 兜得住）
 2. 相机**重传同名文件** → `DSC_0001 (1).JPG` 改名，未实测
 3. `START_STICKY` 被杀后自恢复没实测
-4. **只在 ColorOS / Android 17 与 Xiaomi HyperOS 3 / Android 16 两台机上验过**，其它 ROM / Android 10–15 未验（HyperOS 的热点网卡名、行高、后台广播策略都跟 ColorOS 不一样，换 ROM 复验时走上面 §5 的「验证方法」）
+4. **只在 ColorOS / Android 17 与 Xiaomi HyperOS 3 / Android 16 两台机上验过**，其它 ROM / Android 10–15 未验（HyperOS 的热点网卡名、行高、后台广播策略都跟 ColorOS 不一样，换 ROM 复验时走上面 §4 的「验证方法」）
 5. 配置的失败路径（如端口被占用）没测
 6. 批量几百张 / 超大文件没测（8MB 连拍过了）
-7. **缩略图网格里两条分支没上真机**：① 占位格（`thumb == null` → 灰底 + `NEF`/`TXT` 后缀）、② 失败小字（`eventLog`）。核心链路已在 OPPO 真机验证（见「已验证」最后一条）；这两条没验只是因为造样本要往 `filesDir/ftp` 塞文件，而这台机 `adb shell id` = `uid=2000(shell)`（无 root，写不进私有目录），而 passive FTP 经 `adb forward` 也打不进去（服务公布的是热点地址 `10.129.14.x`，电脑不在那个网段）。要验就走真相机/curl 连热点上传一个 `.txt`
+7. **缩略图网格里两条分支没上真机**：① 占位格（`thumb == null` → 灰底 + `NEF`/`TXT` 后缀）、② 失败小字（`eventLog`）。核心链路已在真机验证；这两条没验只是因为造样本要往 `filesDir/ftp` 塞文件，而这台机 `adb shell id` = `uid=2000(shell)`（无 root，写不进私有目录），而 passive FTP 经 `adb forward` 也打不进去（服务公布的是热点地址 `10.129.14.x`，电脑不在那个网段）。要验就走真相机/curl 连热点上传一个 `.txt`
 8. **竖拍方向（EXIF）还没真机上验过**（代码刚补上）：相机竖着拍一张传上来，网格里应当是正立的而不是躺倒的。注意验的时候看**新收到的那一格**：已经落盘的旧条目用的是旧缩略图，不会变（这正是「缩略图自己存一份」的副作用）
 9. 缩略图让 `recent.bin` 涨到几百 KB（每次入库整块重写），落盘耗时没测过；量大到能卡住入库再说（代码里留了 `ponytail:` 注记）
 
 ---
 
-## 7. 待办
+## 6. 待办
 
 1. **升 `targetSdk` 到 37 时第一件事：加本地网络权限**。Android 17 起对 `targetSdk ≥ 37` 强制；接受入站 TCP 连接算「本地网络访问」，必须声明 `android.permission.ACCESS_LOCAL_NETWORK` + 运行时申请（权限组 `NEARBY_DEVICES`，用户看到「附近的设备」弹窗），否则**相机的连接会被静默丢弃**（表现为 TCP 超时，无任何报错）。落点：`MainActivity.ensureNotificationPermission()` 旁加同款方法 + README 写清"第一次启动要允许附近的设备"。<br>⚠️ `targetSdk ≤ 36` 时**不要**提前声明该权限（`INTERNET` 会隐式授予）。来源：`developer.android.com/privacy-and-security/local-network-permission`
-2. **热点自动化一半做了、一半故意不做**：「热点开着就收、关掉就停」已落地（§3.20）。「替用户开热点」理论上能用 `WifiManager.startLocalOnlyHotspotWithConfiguration()`（API 36）+ `SoftApConfiguration.Builder`（36.1+），但 **LOH 和系统「个人热点」是两套东西**：SSID / 密码由代码定、相机侧已填的配置要重填、ColorOS 行为不可控 —— 收益不抵复杂度，不做。真要做：单独文件 + `@RequiresApi(36)` + 运行时版本判断兜住，不许影响现有构建。
-3. 换机器开发时：把 keystore `<你的 release keystore 路径>` 和仓库根 `keystore.properties`（密码是随机生成的）**复制过去并备份**，丢了就没法给已装用户升级。
+2. **热点自动化一半做了、一半故意不做**：「热点开着就收、关掉就停」已落地（§2.20）。「替用户开热点」理论上能用 `WifiManager.startLocalOnlyHotspotWithConfiguration()`（API 36）+ `SoftApConfiguration.Builder`（36.1+），但 **LOH 和系统「个人热点」是两套东西**：SSID / 密码由代码定、相机侧已填的配置要重填、ColorOS 行为不可控 —— 收益不抵复杂度，不做。真要做：单独文件 + `@RequiresApi(36)` + 运行时版本判断兜住，不许影响现有构建。
 
 ---
 
-## 8. 复现 / 回归命令
+## 7. 复现 / 回归命令
 
 ```powershell
 gradle test                     # 28 个 JVM 用例
@@ -253,19 +203,6 @@ adb logcat -s HotspotWatch NetworkInfo FtpService   # 热点广播收没收到 /
 adb shell dumpsys activity broadcasts > temp\bc.txt   # 广播投给谁了：搜包名看 DELIVERED / skipped by policy
 ```
 
-无线调试连真机（HyperOS 上 `install -g` 和 `input tap` 都会被拒，改打 release 包覆盖装）：
-
-```powershell
-adb mdns services                        # 找 _adb-tls-connect / _adb-tls-pairing 的 IP:端口（配对弹窗开着才有前者）
-adb pair <ip>:<配对端口> <6位码>          # 手机：开发者选项 → 无线调试 → 使用配对码配对设备
-adb connect <ip>:<连接端口>
-# HyperOS 专用取证：热点网卡叫什么 / 哪张网卡在 tether / App 会不会被拦广播
-adb shell ip -4 -o addr show                     # 小米实测热点 = wlan2，STA = wlan0
-adb shell dumpsys tethering | Select-String "Tether state" -Context 0,4
-adb shell am get-standby-bucket io.github.mangome.camftp   # 40=RARE：后台广播会被拦
-adb install -r app\build\outputs\apk\release\app-release.apk   # 同签名覆盖装，配置与已授权限都保留
-```
-
 真机：电脑当 FTP 客户端 —— **不连热点也能验入库链路**（控制连接 `forward`，主动模式的数据连接 `reverse` 回电脑，跟防火墙、热点都无关）：
 
 ```powershell
@@ -275,7 +212,7 @@ curl.exe -sS --user camftp:123456 --ftp-port 127.0.0.1:33333 -T .\x.jpg ftp://12
 adb -s <serial> forward --remove-all; adb -s <serial> reverse --remove-all   # 用完清掉
 ```
 
-值真机（相机那条路）时，电脑得连手机热点（接收只认热点网卡，没有 debug 例外，见 §3.20）：
+验真机（相机那条路）时，电脑得连手机热点（接收只认热点网卡，没有 debug 例外，见 §2.20）：
 
 ```powershell
 # 热点网卡名各 ROM 不同：ColorOS = ap0、HyperOS = wlan2（不确定就抄 App 界面上的地址）
@@ -293,24 +230,7 @@ adb shell ls -l /sdcard/DCIM/CamFtp/
 
 ---
 
-## 9. 备忘
-
-- **临时文件一律放 `temp/`**（截图、dumpsys 转储），已在 `.gitignore` 里 —— 仓库根目录不落临时文件。
-- **关热点 = 停止接收**：通知栏那条「CamFtp · IP:2121 · 已收到 N 张」消失就是停了；App 里没有开始/停止按钮是故意的（§3.20），别加回去。
-- **「最近收到」里出现「测试图」不是异常**：自检按钮的结果按设计进事件列表（`self_test_event`，`counts=false` 不计入张数），不是来路不明的文件。
-- `.gitattributes` 强制 `gradlew` LF、`*.bat` CRLF；`git add` 时 "LF will be replaced by CRLF" 是无害警告。
-- `openspec/` 是误提交，已从仓库移除（本地文件还留着，也在 `.gitignore` 里）。
-- **应用图标是 AI 出图**（E 方案：近黑底 + 白色相机剪影，镜头孔挖成向下的箭头；风格对齐 GitHub App 图标 —— 单色高对比、实心剪影、负空间）。原来那版手写矢量（相机+上传箭头 / 深蓝底）已删。
-  - 出图脚本 `temp/icon/apply_gh_icon.py` 把 `temp/icon/gh/img-20261009-172927-642v.jpg` 拆成两层落进 res：底色层取四角中位色 `#0A0E12`（`ic_launcher_background.xml` 一条纯色 vector）+ 前景层「按亮度拉 alpha 掩码」(`mipmap-*/ic_launcher_foreground.png`，箭头处透明好透出底色)。换图重跑这一个脚本即可，它同时写各密度 PNG、底色 vector 和两个 anydpi XML。
-  - **前景尺寸按安全圆算**，不是按「图形占画布 52%」硬编码：先求图形最远实心点到画布中心的距离比例，再缩到 ≤ 32.5dp（安全圆 66dp 半径），这样圆 / 水滴 / 圆角方任何遮罩都切不到，图形换了也不用重算（实测这套裁出来最宽 55.8dp）。legacy 平铺方图不吃遮罩缩放，另走 0.62 宽度比例。
-  - **别把 AI 出的整张方图直接缩进 mipmap**：2048 方图没有「安全区」概念，图形占满 69%，套上圆形遮罩就切边；而且 JPEG 底色带噪声、边缘有振铃灰环，必须阈值化+压掉低值 alpha 才是干净的平色。
-  - 候选与对比图全在 `temp/icon/gh*`（`contact2.png` 六个候选 + 小尺寸检验、`mask-check.png` 遮罩预演、`device-home.png` ColorOS 桌面实拍）。
-- 相机里存着旧配置（服务器地址 `10.129.14.x`），**手机热点一关或网段变了就得重填**。
-- 已装过旧版本（默认账号 `旧默认账号`）的机器，SharedPreferences 里**仍是旧值**，除非在 UI 里改。
-
----
-
-## 10. 参考资料
+## 8. 参考资料
 
 - 尼康 Z50II 手册 FTP 章节：<https://onlinemanual.nikonimglib.com/z50II/en/25-04.html>、<https://onlinemanual.nikonimglib.com/z50II/en/09-09-07.html>
 - Android 前台服务类型与前提条件：<https://developer.android.com/develop/background-work/services/fgs/service-types>
