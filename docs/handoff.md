@@ -300,7 +300,11 @@ adb shell ls -l /sdcard/DCIM/CamFtp/
 - **「最近收到」里出现「测试图」不是异常**：自检按钮的结果按设计进事件列表（`self_test_event`，`counts=false` 不计入张数），不是来路不明的文件。
 - `.gitattributes` 强制 `gradlew` LF、`*.bat` CRLF；`git add` 时 "LF will be replaced by CRLF" 是无害警告。
 - `openspec/` 是误提交，已从仓库移除（本地文件还留着，也在 `.gitignore` 里）。
-- 应用图标是手写矢量（`ic_launcher_foreground.xml` 相机+上传箭头 / 深蓝底），当时生图工具不可用。想换 AI 图标先配好 provider。
+- **应用图标是 AI 出图**（E 方案：近黑底 + 白色相机剪影，镜头孔挖成向下的箭头；风格对齐 GitHub App 图标 —— 单色高对比、实心剪影、负空间）。原来那版手写矢量（相机+上传箭头 / 深蓝底）已删。
+  - 出图脚本 `temp/icon/apply_gh_icon.py` 把 `temp/icon/gh/img-20261009-172927-642v.jpg` 拆成两层落进 res：底色层取四角中位色 `#0A0E12`（`ic_launcher_background.xml` 一条纯色 vector）+ 前景层「按亮度拉 alpha 掩码」(`mipmap-*/ic_launcher_foreground.png`，箭头处透明好透出底色)。换图重跑这一个脚本即可，它同时写各密度 PNG、底色 vector 和两个 anydpi XML。
+  - **前景尺寸按安全圆算**，不是按「图形占画布 52%」硬编码：先求图形最远实心点到画布中心的距离比例，再缩到 ≤ 32.5dp（安全圆 66dp 半径），这样圆 / 水滴 / 圆角方任何遮罩都切不到，图形换了也不用重算（实测这套裁出来最宽 55.8dp）。legacy 平铺方图不吃遮罩缩放，另走 0.62 宽度比例。
+  - **别把 AI 出的整张方图直接缩进 mipmap**：2048 方图没有「安全区」概念，图形占满 69%，套上圆形遮罩就切边；而且 JPEG 底色带噪声、边缘有振铃灰环，必须阈值化+压掉低值 alpha 才是干净的平色。
+  - 候选与对比图全在 `temp/icon/gh*`（`contact2.png` 六个候选 + 小尺寸检验、`mask-check.png` 遮罩预演、`device-home.png` ColorOS 桌面实拍）。
 - 相机里存着旧配置（服务器地址 `10.129.14.x`），**手机热点一关或网段变了就得重填**。
 - 已装过旧版本（默认账号 `旧默认账号`）的机器，SharedPreferences 里**仍是旧值**，除非在 UI 里改。
 
