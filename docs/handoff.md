@@ -199,6 +199,8 @@ app/src/test/java/.../NetworkInfoTest.kt 5 个：热点网卡识别（小米 wla
 
 ## 7. 复现 / 回归命令
 
+发布：改 `app/build.gradle.kts` 的 `versionName`/`versionCode` 并提交 → `git tag v0.1.7 && git push origin v0.1.7` → `.github/workflows/release.yml` 自动跑单测、签名打包、建 Release（资产 `CamFtp-0.1.7.apk`，正文取 `CHANGELOG.md` 里 `[0.1.7]` 那节）。tag 与 `versionName` 不一致第一步就失败；同一个 tag 重跑要先 `gh release delete v0.1.7`。签名凭据在仓库 Secrets（`KEYSTORE_B64` / `KEYSTORE_PASSWORD` / `KEY_ALIAS` / `KEY_PASSWORD`）。
+
 ```powershell
 gradle test                     # 28 个 JVM 用例
 gradle :app:testDebugUnitTest --rerun    # 强制重跑（复现竞态用）

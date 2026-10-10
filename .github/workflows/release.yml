@@ -1,0 +1,57 @@
+name: 发布
+
+# 打 tag 即发布：tag 名必须是 v + app/build.gradle.kts 里的 versionName（如 v0.1.7）
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write   # gh release create 需要
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+
+      - name: 校验 tag 与 versionName 一致
+        id: version
+        run: |
+          v=$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts)
+          if [ "v$v" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::tag $GITHUB_REF_NAME 与 app/build.gradle.kts 的 versionName=$v 不一致：先改号再打 tag"
+            exit 1
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      - name: 写入签名配置
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+            "$RUNNER_TEMP/release.jks" "$KEYSTORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > keystore.properties
+
+      - name: 单测 + 打包
+        run: ./gradlew --console=plain test assembleRelease
+
+      - name: 建 Release 并上传 APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk "CamFtp-$VERSION.apk"
+          # 正文取 CHANGELOG 里 [VERSION] 那节；没有就退回自动生成的提交列表
+          awk -v v="$VERSION" '/^## \[/{if (p) exit; if (index($0, "## [" v "]") == 1) p=1; next} p' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          args=(--title "CamFtp $GITHUB_REF_NAME")
+          if [ -s "$RUNNER_TEMP/notes.md" ]; then args+=(--notes-file "$RUNNER_TEMP/notes.md"); else args+=(--generate-notes); fi
+          gh release create "$GITHUB_REF_NAME" "CamFtp-$VERSION.apk" "${args[@]}"
