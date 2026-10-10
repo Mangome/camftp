@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="108" height="108" role="img" aria-label="CamFtp 图标">
+  <title>CamFtp 图标</title>
+  <path d="M0,0h108v108h-108z" fill="#101820"/>
+  <g transform="translate(2.8,2.8) scale(0.4)">
+    <path d="M77.54,70H178.46A7.54,7.54 0 0 1 186,77.54V178.46A7.54,7.54 0 0 1 178.46,186H77.54A7.54,7.54 0 0 1 70,178.46V77.54A7.54,7.54 0 0 1 77.54,70Z" fill="#E9EFF3" transform="rotate(12 128 128)"/>
+    <path d="M87,81H169A6,6 0 0 1 175,87V154A6,6 0 0 1 169,160H87A6,6 0 0 1 81,154V87A6,6 0 0 1 87,81Z" fill="#8FD9EF" transform="rotate(12 128 128)"/>
+  </g>
+</svg>

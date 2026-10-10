@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 主题图标层（monochrome）：系统会把不透明处涂成单色，所以相纸窗口必须是真洞，
+     不能画成另一种颜色（画了会被一起染色，窗口就没了）。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group android:translateX="2.8" android:translateY="2.8"
+        android:scaleX="0.4" android:scaleY="0.4">
+        <group android:rotation="12" android:pivotX="128" android:pivotY="128">
+            <path android:fillColor="#000000" android:fillType="evenOdd" android:pathData="M77.54,70H178.46A7.54,7.54 0 0 1 186,77.54V178.46A7.54,7.54 0 0 1 178.46,186H77.54A7.54,7.54 0 0 1 70,178.46V77.54A7.54,7.54 0 0 1 77.54,70ZM87,81H169A6,6 0 0 1 175,87V154A6,6 0 0 1 169,160H87A6,6 0 0 1 81,154V87A6,6 0 0 1 87,81Z" />
+        </group>
+    </group>
+</vector>

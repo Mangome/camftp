@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 自适应图标：底色纯色层 + 剪影前景层。monochrome 用同一张前景 ——
-     主题图标下系统把不透明处涂成一个色，箭头处透出底色，形态不变。 -->
+<!-- 自适应图标：底色纯色层 + 矢量前景层 + 主题图标层。
+     前景/主题都用矢量（全是填充路径，不描边），换密度不用重出图。
+     母版与几何说明见 branding/README.md。 -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@drawable/ic_launcher_background" />
-    <foreground android:drawable="@mipmap/ic_launcher_foreground" />
-    <monochrome android:drawable="@mipmap/ic_launcher_foreground" />
+    <foreground android:drawable="@drawable/ic_launcher_foreground" />
+    <monochrome android:drawable="@drawable/ic_launcher_monochrome" />
 </adaptive-icon>

@@ -49,6 +49,8 @@ app/src/main/java/io/github/mangome/camftp/
 app/src/main/res/
 ├── values/colors.xml + values-night/colors.xml   全部颜色（cam_* 命名，深浅两套）
 ├── values/themes.xml      Theme.CamFtp：M3 槽位映射 + 状态栏/导航栏图标明暗
+├── drawable/ic_launcher_foreground.xml + ic_launcher_monochrome.xml + ic_launcher_background.xml  自适应图标三层（矢量；几何与 branding/ 同源，见 §2.27）
+├── drawable/ic_notification.xml   通知栏 24dp 单色剪影（窗口是真洞）
 ├── layout/activity_main.xml   相机连接面板（整屏主角，§2.26）→ 热点设置按钮 → 相机读数卡 → 折叠的高级设置 → 最近收到（网格 + 失败小字）
 └── layout/item_recent.xml     「最近收到」的一格：圆角方图 + 后缀徽标 + 文件名
 app/src/test/java/.../FtpEngineTest.kt   11 个 JVM 用例（FTP 引擎全流程，含匿名登录开关两种状态、会话数回调）
@@ -60,6 +62,8 @@ app/src/test/java/.../NetworkInfoTest.kt 5 个：热点网卡识别（小米 wla
 ```
 
 `compileSdk`/`targetSdk` 36、`minSdk` 29、ViewBinding、AGP 8.13.2 / Kotlin 2.2.21（见 `gradle/libs.versions.toml`）。
+
+标识资产的**母版在仓库根目录 `branding/`**（SVG + 使用规范），App 里的资源是它的派生品 —— 改标识改母版再派生，别直接改 res。
 
 ---
 
@@ -105,6 +109,8 @@ app/src/test/java/.../NetworkInfoTest.kt 5 个：热点网卡识别（小米 wla
    ④ **RAW 不认后缀白名单**：`BitmapFactory` 解不出来就去 `EmbeddedJpeg.largest()`，谁嵌了 JPEG 谁就有图 —— 换品牌/换机型不用改代码（原来那 10 个后缀的白名单已经删了）。不认后缀的视频（`.mts` 等）按 `VIDEO` 集合兜底去试首帧，否则会把一个几 GB 的文件当图片整读一遍找 JPEG；找预览前还有一道 256MB 的大小阀（入库是单线程，绝不能被一个大文件堵住）。
 
 26. **相机连接状态有专门的面板，它是整屏主角**（连接状态是整屏最重要的一条信息）。原来那行 22sp 的「未接收 / 正在接收」已删（「正在接收」后来以面板状态词 `status_transferring` 回来，见 ②），换成屏幕最上面一块暗底面板：① 底色 `cam_instrument`，**两个主题下都是暗的**（夜里不能被一整块亮色砸到；也正因为这样它跟两张白卡不靠字号就能分层），但**色相按状态换**（`updateCameraHint()` 里 `backgroundTintList`）：闲置 `cam_instrument` 中性墨蓝 / 连上·传输中 `cam_instrument_live` 暗绿 / 缺热点 `cam_instrument_alert` 暗红，三档明度都在同一条暗带上 —— 要的是「一眼看出现在属于哪一类」，**不是换一块亮色**（夜里那档还比白天再暗一档）；② 26sp 状态词 + 等宽副行，五态：`status_need_hotspot`（暗字）/ `status_camera_waiting`（亮字）/ `status_camera_online`（绿字）/ `status_camera_offline`（亮字）/ `status_transferring`（绿字，`STOR` 一开始就切过来、传完 / 传到一半断线切回去），副行只在传输中报正在传的文件名、或「断开但连过」时报「上次连接 HH:mm」（**不再报「已收到 N 张」**：张数归整个会话，跟面板当下说的是哪一态没关系）；③ **只有一处动效**：连上时左边那颗灯呼吸（`setLinkLamp()`，`ValueAnimator.areAnimatorsEnabled()` 为假就常亮），`lampOn` 挡重复重启；④ 状态词只有 `updateCameraHint()` 一处出处（它才知道有没有热点），字色语义只三个：连上/传输中=绿（跟灯同色）、等/断开=亮字、缺热点=暗字，且与底色同一个 `when`（`hotspotIface == null` 在最前：没热点时即使还挂着残留会话也不报绿）；⑤ 副行时间戳用固定 24 小时制 `SimpleDateFormat`（同 §2.22）。**传输中状态来自 `SinkFtplet` 的 `onTransfer`（`STOR` 那一刻报名字、传完清空，见 §2.26）**。**别把 IP 搬进面板、也别把面板字号缩下去给地址让路**：两者分工是「暗面板 = 现在怎么样 / 白卡 = 往相机里填什么」。
+
+27. **标识 = 一张相纸，母版在 `branding/`，App 资源是派生品**（第四版；前三版都是「四只不等臂取景角 + 相纸」，角标在启动图标里过重、还占掉安全圆，见 `branding/README.md` 开头）。几何：半宽 58（116×116）、上/左右纸边 11、**底唇 26**、窗口 94×79（比 0.84）、侧倾 12°；颜色全部取自现有色板（纸 `cam_instrument`、窗口 `cam_primary`，深底换成 `cam_on_instrument` + `cam_inverse_primary`）。三条别改的：① **启动图标前景/主题层用矢量、全是填充路径不描边**（`ic_launcher_foreground.xml` / `ic_launcher_monochrome.xml`）—— 描边粗细在不同渲染器下会飘；换密度不用重出图。② **主题层与通知图标的窗口必须是真洞**（同一条 path 里 `fillType="evenOdd"`），画成另一种颜色会被系统一并染色，窗口就没了。③ 前景层缩放固定 0.40（相纸半对角 82 × 0.40 = 32.8dp，落在 66dp 安全圆内，可见区 76%），**别再放大**，放大就会被正圆遮罩切到角。**没有小尺寸专用几何了**（当年另做一档是因为角标会和相纸粘成一块，现在只剩相纸）：同一份几何从 512 一路用到 16px。四份几何（主符号/启动图标/通知图标/界面图标）只在 `temp/logo-design/brand_params.py` 写一份，`build_brand.py` 一次生成母版 + res 矢量 + 各密度位图 —— 别再各写一套（踩过：母版 5° / res 2° 不一致、相纸过大和角标粘成一块）。字标字形目前是 Noto Sans SC（OFL）转的路径，属**占位字形**，换字形不用动符号。
 
 ---
 

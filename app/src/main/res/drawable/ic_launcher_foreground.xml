@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 自适应图标前景层：一张相纸（母版 branding/icon-foreground.svg）。
+     缩放 0.40：相纸半对角 82 × 0.40 = 32.8dp，正好落在 66dp 安全圆内（可见区 76%）。
+     相纸倾角 12° 是定案；换几何改 branding/ 母版，别直接改这里。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group android:translateX="2.8" android:translateY="2.8"
+        android:scaleX="0.4" android:scaleY="0.4">
+        <group android:rotation="12" android:pivotX="128" android:pivotY="128">
+            <path android:fillColor="#E9EFF3" android:pathData="M77.54,70H178.46A7.54,7.54 0 0 1 186,77.54V178.46A7.54,7.54 0 0 1 178.46,186H77.54A7.54,7.54 0 0 1 70,178.46V77.54A7.54,7.54 0 0 1 77.54,70Z" />
+            <path android:fillColor="#8FD9EF" android:pathData="M87,81H169A6,6 0 0 1 175,87V154A6,6 0 0 1 169,160H87A6,6 0 0 1 81,154V87A6,6 0 0 1 87,81Z" />
+        </group>
+    </group>
+</vector>

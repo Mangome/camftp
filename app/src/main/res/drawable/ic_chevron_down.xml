@@ -1,9 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 折叠箭头（高级设置）。几何母版 branding/icons/ic_chevron_down.svg；形状与配色约定见 branding/README.md。
+     填充路径（不描边）：描边粗细会随渲染器飘；颜色由主题 tint 给。 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M7.41,8.59L12,13.17l4.59,-4.58L18,10l-6,6 -6,-6z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M5.29,9.36L11.58,15.64Q12,16.06 12.42,15.64L18.71,9.36L17.29,7.94L12,13.24L6.71,7.94Z" />
 </vector>

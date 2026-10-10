@@ -1,12 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 通知栏图标：一张相纸的单色剪影（系统按通知样式染色）。母版 branding/icon-notification.svg。
+     窗口是真洞（evenOdd）—— 画成另一种颜色会被一起染色，窗口就没了。 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M12,2L17,9h-3.5v4h-3V9H7z" />
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M5,14h14a2,2 0 0 1 2,2v5a2,2 0 0 1 -2,2H5a2,2 0 0 1 -2,-2v-5a2,2 0 0 1 2,-2zM12,15.5a3.25,3.25 0 1 0 0.01,0z" />
+    <group android:translateX="-8.0025" android:translateY="-8.0025"
+        android:scaleX="0.1563" android:scaleY="0.1563">
+        <group android:rotation="12" android:pivotX="128" android:pivotY="128">
+            <path android:fillColor="#FFFFFFFF" android:fillType="evenOdd" android:pathData="M77.54,70H178.46A7.54,7.54 0 0 1 186,77.54V178.46A7.54,7.54 0 0 1 178.46,186H77.54A7.54,7.54 0 0 1 70,178.46V77.54A7.54,7.54 0 0 1 77.54,70ZM87,81H169A6,6 0 0 1 175,87V154A6,6 0 0 1 169,160H87A6,6 0 0 1 81,154V87A6,6 0 0 1 87,81Z" />
+        </group>
+    </group>
 </vector>
