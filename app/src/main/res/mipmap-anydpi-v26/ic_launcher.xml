@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 自适应图标：底色纯色层 + 矢量前景层 + 主题图标层。
-     前景/主题都用矢量（全是填充路径，不描边），换密度不用重出图。
-     母版与几何说明见 branding/README.md。 -->
+<!-- 自适应图标：纸白底色层 + 位图前景层 + 位图主题层。
+     前景 / 主题层不用矢量：线稿有 1150 条路径（约 320KB 路径数据），矢量每次冷启动都要解析。
+     位图由 branding/build_brand.py 从 branding/icon-*.svg 出，换密度重跑脚本。 -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@drawable/ic_launcher_background" />
-    <foreground android:drawable="@drawable/ic_launcher_foreground" />
-    <monochrome android:drawable="@drawable/ic_launcher_monochrome" />
+    <foreground android:drawable="@mipmap/ic_launcher_foreground" />
+    <monochrome android:drawable="@mipmap/ic_launcher_monochrome" />
 </adaptive-icon>

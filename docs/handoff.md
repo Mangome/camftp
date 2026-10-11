@@ -1,6 +1,6 @@
 # CamFtp 开发笔记
 
-**仓库** <https://github.com/Mangome/camftp> ｜ **状态**：功能完成，`v0.1.6` 已发布（变更见 `CHANGELOG.md`）
+**仓库** <https://github.com/Mangome/camftp> ｜ **状态**：功能完成，`v0.2.0` 已发布（变更见 `CHANGELOG.md`）
 **面向**：要改这个仓库的人 / 新的 agent session。**§2 是改代码前的必读清单**（每条一行，违反了基本都会出问题）；实测踩坑记在 §4。本机 / 个人工作台内容（环境、真机验收流水、取证命令）在 `temp/dev-notes.local.md`（已 gitignore）。
 
 ---
@@ -57,7 +57,7 @@ app/src/test/java/.../  FtpEngineTest 11 · FtpStateTest 4 · EmbeddedJpegTest 4
 
 `compileSdk`/`targetSdk` 36、`minSdk` 29、ViewBinding、AGP 8.13.2 / Kotlin 2.2.21（见 `gradle/libs.versions.toml`）。
 
-标识资产的**母版在仓库根目录 `branding/`**（SVG + 使用规范），App 里的资源是它的派生品 —— 改标识改母版再派生，别直接改 `res`。
+标识资产的**母版在仓库根目录 `branding/`**（SVG + 使用规范 + 派生脚本 `build_brand.py`），App 里的资源是它的派生品 —— 改标识改母版再跑脚本派生，别直接改 `res`。
 
 ---
 
@@ -121,7 +121,7 @@ app/src/test/java/.../  FtpEngineTest 11 · FtpStateTest 4 · EmbeddedJpegTest 4
 - **点「最近收到」的一格打开原图前先探活**（`openAssetFileDescriptor(uri, "r")`）：图在相册里被删掉后 `ACTION_VIEW` 照样启动得起来，用户看到的是「应用打不开这个文件」而不是我们的提示。**缩略图还在不代表原图还在**。只有 `uri` 非空的格子才可点，所以每条成功入库都必须带上 `uri`。
 - **自检按钮是「情境化」的，不是设置项**：长在「最近收到」里，只在 `Snapshot.anyStored == false` 时出现（收到真图或自检成功即收起，自检失败则留着可重试）；显隐跟着落盘，代价是自检成功过就不再问（想再自检要清 App 数据）。自检结果写 `Event(counts = false)`，不算进「已收到 N 张」。
 - **文案铁律：只说下一步该干什么，不解释观察到的网络状态**（「连的是别的网络」「地址会显示在下面」这类都没意义，太长会被打回）。
-- **标识 = 一张相纸，母版在 `branding/`**。三条别改：① 启动图标前景 / 主题层**全是填充路径不描边**（描边粗细在不同渲染器下会飘）；② 主题层与通知图标的**窗口是真洞**（`fillType="evenOdd"`，画成另一种颜色会被系统一并染色）；③ 前景层缩放固定 **0.40**，放大就会被正圆遮罩切到角。四份几何只在 `temp/logo-design/brand_params.py` 写一份，`build_brand.py` 生成全部 —— 别各写一套。
+- **标识 = 一张线稿（相机 + 举着手机取景的手），母版在 `branding/`**，派生只走 `branding/build_brand.py`（几何与颜色只在该脚本顶部的 `PARAMS` 一处）。四条别改：① 启动图标前景 / 主题层是**位图**（线稿 1150 条路径，矢量冷启动解析代价太大）—— 改 `PARAMS` 后要连位图一起重出，别只改 SVG；② 主题层是**线稿真洞版**（`<mask>` 挖出来的），通知图标仍是相纸单色剪影 —— 别拿线稿顶上去，24dp 必糊；③ 前景层缩放固定 **0.05**，放大就会被正圆遮罩切到手臂；④ 母版按**外接框**居中，图标里再按下压量补偿视觉重心（`PARAMS` 的 `icon_shift`，启动与 legacy 一起用、lockup 不用）—— 派生时别把母版那行 translate 丢掉，丢了内容会高 2.5dp（真机量过），`verify()` 有断言拦。
 
 ---
 
@@ -234,7 +234,7 @@ app/src/test/java/.../  FtpEngineTest 11 · FtpStateTest 4 · EmbeddedJpegTest 4
 
 ## 7. 复现 / 回归命令
 
-发布：改 `app/build.gradle.kts` 的 `versionName`/`versionCode` 并提交 → `git tag v0.1.7 && git push origin v0.1.7` → `.github/workflows/release.yml` 自动跑单测、签名打包、建 Release（正文取 `CHANGELOG.md` 里对应那节）。tag 与 `versionName` 不一致第一步就失败；同一个 tag 重跑要先 `gh release delete v0.1.7`。签名凭据在仓库 Secrets。
+发布：改 `app/build.gradle.kts` 的 `versionName`/`versionCode` 并提交 → `git tag v0.2.0 && git push origin v0.2.0` → `.github/workflows/release.yml` 自动跑单测、签名打包、建 Release（正文取 `CHANGELOG.md` 里对应那节）。tag 与 `versionName` 不一致第一步就失败；同一个 tag 重跑要先 `gh release delete v0.2.0`。签名凭据在仓库 Secrets。
 
 ```powershell
 gradle test                              # 28 个 JVM 用例

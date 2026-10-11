@@ -1,4 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="108" height="108" role="img" aria-label="CamFtp 图标背景层">
   <title>CamFtp 图标背景层</title>
-  <path d="M0,0h108v108h-108z" fill="#101820"/>
+  <!-- 底色吃满 108dp。线稿是墨蓝的，底色必须亮。 -->
+  <path d="M0,0h108v108h-108z" fill="#FFFFFF" />
 </svg>
