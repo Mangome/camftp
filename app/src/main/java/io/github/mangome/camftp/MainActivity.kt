@@ -46,7 +46,8 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * 单屏：相机连接面板（主角）/ 相机里要填的读数 / 高级设置（折叠）/ 最近收到。
+ * 单屏：相机连接面板（唯一暗块）/ 最近收到（大图 + 一行小图 + 失败条）/ 相机里要填的读数 /
+ * 热点设置入口 / 高级设置（折叠）/ 关于。
  * 没有开始/停止按钮：接收跟着热点走（见 [HotspotWatch]），关热点就是停止。
  * 不做多页面、不做 Compose（见 handoff §0「别做的」）。
  */
@@ -79,8 +80,7 @@ class MainActivity : AppCompatActivity() {
 
         binding.saveButton.setOnClickListener { saveConfig() }
         binding.anonymousSwitch.setOnCheckedChangeListener { _, checked ->
-            binding.userInput.isEnabled = !checked   // 匿名登录时用户名密码用不上
-            binding.passwordInput.isEnabled = !checked
+            setAccountFieldsEnabled(!checked)   // 匿名登录时用户名密码用不上
             updateCameraHint()
         }
         // 一改就清掉这个字段上一次的报错（TextInputLayout 在时的旧行为）
@@ -140,7 +140,7 @@ class MainActivity : AppCompatActivity() {
 
         // 连接面板的文字由 updateCameraHint() 唯一负责（它才知道有没有热点），这里只管事件列表
         updateCameraHint()
-        renderEvents(state.events)
+        renderRecent(state.events)
         // 空态整块（虚线卡 + 「写入测试图」）：链路被证明过（真图或自检图成功入库）就收起。
         // anyStored 跟着条目落盘：重启后不会又冒出来。自检失败时它还是 false，卡片留在原地可重试
         binding.eventEmpty.isVisible = !state.anyStored
@@ -158,11 +158,22 @@ class MainActivity : AppCompatActivity() {
     private val eventTime = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
     private val eventDateTime = SimpleDateFormat("MM-dd HH:mm:ss", Locale.getDefault())
 
-    /** 网格间距 8dp：行内格间距和行间距共用一个值。lazy：字段初始化早于 attachBaseContext，那时拿不到 resources */
+    /** 计数行的时间戳：跨天的只给月日（那是「N / 12 ·」后面的一小段，秒级在那儿太吵） */
+    private val eventDate = SimpleDateFormat("MM-dd", Locale.getDefault())
+
+    /** 小图条的格间距 8dp（设计稿的 grid gap）。lazy：字段初始化早于 attachBaseContext，那时拿不到 resources */
     private val gridGap by lazy { (8 * resources.displayMetrics.density).toInt() }
 
-    /** 解出来的小图按 uri 缓存：12 张 384px 约 7MB，8MB 上限挡住无界增长 */
-    private val thumbCache = object : LruCache<String, Bitmap>(8 * 1024) {
+    /** 大图那一格真正要显示的像素宽（按实际屏宽减两侧页边距算，窄屏自动跟着变） */
+    private val heroTargetPx by lazy {
+        resources.displayMetrics.widthPixels - 2 * resources.getDimensionPixelSize(R.dimen.page_margin)
+    }
+
+    /** 小图那 5 格的目标像素边长（设计稿 64dp） */
+    private val tileTargetPx by lazy { (64 * resources.displayMetrics.density).toInt() }
+
+    /** 解出来的小图按 uri + 目标尺寸缓存：大图那格 1280px 约 4.4MB，小图那几格各不到 1MB，16MB 上限挡住无界增长 */
+    private val thumbCache = object : LruCache<String, Bitmap>(16 * 1024) {
         override fun sizeOf(key: String, value: Bitmap) = value.byteCount / 1024
     }
 
@@ -179,79 +190,116 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * 「最近收到」= 成功条目的缩略图网格 + 失败条目的日志小字。
+     * 「最近收到」= 最新一张的大图 + 除它之外最近 5 张的小图条 + 失败条目的日志小字。
      * 成功条目不再显示时间和目录（目录就是 `DCIM/<配置的目录>`，每行都一样；图本身带着「刚拍的」的时间感），
      * 失败条目没有图，时间和原因照旧 —— 那是「相机传了但没进相册」的唯一线索。
      */
-    private fun renderEvents(events: List<FtpState.Event>) {
+    private fun renderRecent(events: List<FtpState.Event>) {
         val stored = events.filter { it.ok }
-        // 计数常显（设计稿空态里也写着「0 / 12」）：它是网格的容量刻度，不是「有收获」的标记
-        binding.eventCount.text = getString(R.string.event_count, stored.size, FtpState.MAX_EVENTS)
-        renderGrid(stored)
+        val newest = stored.firstOrNull()
+        // 计数常显（设计稿空态里也写着「0 / 12」）：它是容量刻度，不是「有收获」的标记；
+        // 有收获时补上最新那张的时间 —— 「什么时候收的」比「一共几张」更值得先看
+        binding.eventCount.text = if (newest == null) {
+            getString(R.string.event_count, 0, FtpState.MAX_EVENTS)
+        } else {
+            getString(
+                R.string.event_count_stamp, stored.size, FtpState.MAX_EVENTS,
+                if (DateUtils.isToday(newest.at)) panelClock.format(Date(newest.at))
+                else eventDate.format(Date(newest.at)),
+            )
+        }
+        bindHero(newest)
+        renderThumbs(stored.drop(1))
         renderFailures(events.filter { !it.ok })
     }
 
-    /** 3 列方格，新的在前。整块重建：最多 12 格，比维护视图复用省事得多 */
-    private fun renderGrid(events: List<FtpState.Event>) {
-        binding.eventGrid.isVisible = events.isNotEmpty()
-        binding.eventGrid.removeAllViews()
-        events.chunked(GRID_COLUMNS).forEach { row ->
-            val rowView = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-            row.forEachIndexed { column, event ->
-                val tile = ItemRecentBinding.inflate(layoutInflater, rowView, false)
-                bindTile(tile, event)
-                rowView.addView(
-                    tile.root,
-                    LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
-                        marginStart = if (column > 0) gridGap else 0
-                    },
-                )
-            }
-            // 最后一行不满时补空位，否则那几个格子会被拉宽，跟上面几行对不齐
-            repeat(GRID_COLUMNS - row.size) {
-                rowView.addView(Space(this), LinearLayout.LayoutParams(0, 1, 1f).apply { marginStart = gridGap })
-            }
-            binding.eventGrid.addView(
-                rowView,
-                LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                ).apply { topMargin = if (binding.eventGrid.childCount > 0) gridGap else 0 },
+    /**
+     * 最新一张之外的那几张小图：一行，新的在前。整块重建：最多 5 格，比维护视图复用省事得多。
+     * 没有分页也没有「查看全部」—— 超过 5 张的只在计数里体现（设计稿：一屏就是全部出口）
+     */
+    private fun renderThumbs(events: List<FtpState.Event>) {
+        val shown = events.take(MINI_TILES)
+        binding.eventRow.isVisible = shown.isNotEmpty()
+        binding.eventRow.removeAllViews()
+        shown.forEachIndexed { column, event ->
+            val tile = ItemRecentBinding.inflate(layoutInflater, binding.eventRow, false)
+            bindTile(tile, event)
+            binding.eventRow.addView(
+                tile.root,
+                LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    marginStart = if (column > 0) gridGap else 0
+                },
+            )
+        }
+        // 不足 5 格时补空位，否则剩下那几格会被拉宽（跟原来网格最后一行同一个理由）
+        repeat(MINI_TILES - shown.size) {
+            binding.eventRow.addView(
+                Space(this),
+                LinearLayout.LayoutParams(0, 1, 1f).apply { marginStart = gridGap },
             )
         }
     }
 
+    /** 最新一张：整块可点，点开相册里的原图。出不了图时显示后缀（NEF / MP4 / TXT） */
+    private fun bindHero(event: FtpState.Event?) {
+        binding.heroCard.isVisible = event != null
+        if (event == null) return
+        binding.heroImage.isVisible = event.thumb != null
+        binding.heroBadge.isVisible = event.thumb == null
+        if (event.thumb == null) binding.heroBadge.text = extension(event.name)
+        else showThumb(event, binding.heroImage, heroTargetPx)
+        binding.heroCard.contentDescription = event.name
+        binding.heroCard.isClickable = event.uri != null
+        binding.heroCard.setOnClickListener { event.uri?.let(::openStored) }
+    }
+
     private fun bindTile(tile: ItemRecentBinding, event: FtpState.Event) {
-        tile.tileCaption.text = event.name
         tile.tileImage.isVisible = event.thumb != null
         tile.tileBadge.isVisible = event.thumb == null
-        if (event.thumb == null) {
-            // 出不了图（RAW 抽不出预览 / 原图已删 / 非媒体文件）：后缀比通用破图图标说得清楚
-            tile.tileBadge.text = event.name.substringAfterLast('.', "").uppercase().ifEmpty { "FILE" }
-        } else {
-            showThumb(event, tile.tileImage)
-        }
+        if (event.thumb == null) tile.tileBadge.text = extension(event.name)
+        else showThumb(event, tile.tileImage, tileTargetPx)
         // 整块是热区（跟原来「整行可点」一个意思）。图在相册里被删了也能点，点了给提示（见 openStored）
         tile.tileCard.contentDescription = event.name
         tile.tileCard.isClickable = event.uri != null
         tile.tileCard.setOnClickListener { event.uri?.let(::openStored) }
     }
 
+    /** 出不了图（RAW 抽不出预览 / 原图已删 / 非媒体文件）时，后缀比通用破图图标说得清楚 */
+    private fun extension(name: String) =
+        name.substringAfterLast('.', "").uppercase().ifEmpty { "FILE" }
+
     /**
      * 小图直接存在事件里（[FtpState.Event.thumb]），解码丢到 IO 线程。
-     * 解回来时格子可能已经被下一次 render 换掉了（每次入库都会整块重建）：认 tag，不认 view
+     * 解回来时格子可能已经被下一次 render 换掉了（每次入库都会整块重建）：认 tag，不认 view。
+     * [targetPx] 是这一格真正要显示的像素宽（大图 350dp、小图 64dp）：入库存的是长边 1280px 那张，
+     * 5 张小图各自再拖一份 4.4MB 的位图没道理 —— 按目标降采样（大图那格仍然是原尺寸解）
      */
-    private fun showThumb(event: FtpState.Event, view: ImageView) {
+    private fun showThumb(event: FtpState.Event, view: ImageView, targetPx: Int) {
         val uri = event.uri ?: return
-        thumbCache.get(uri)?.let { view.setImageBitmap(it); return }
-        view.tag = uri
+        val key = "$uri@$targetPx"   // 同一张图大小两用，缓存键得带上目标尺寸
+        thumbCache.get(key)?.let { view.setImageBitmap(it); return }
+        view.tag = key
         lifecycleScope.launch {
             val bitmap = withContext(Dispatchers.IO) {
-                event.thumb?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }
+                event.thumb?.let { decodeThumb(it, targetPx) }
             } ?: return@launch
-            thumbCache.put(uri, bitmap)
-            if (view.tag == uri) view.setImageBitmap(bitmap)
+            thumbCache.put(key, bitmap)
+            if (view.tag == key) view.setImageBitmap(bitmap)
         }
+    }
+
+    /**
+     * 按 2 的幂降采样到「不小于目标尺寸」（解码器只认 2 的幂），剩下的零头交给 ImageView 的 centerCrop。
+     * 目标取长边：竖拍那张的长边是高度，按长边降也够宽
+     */
+    private fun decodeThumb(bytes: ByteArray, targetPx: Int): Bitmap? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        if (bounds.outWidth <= 0) return null
+        var sample = 1
+        while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= targetPx) sample *= 2
+        val opts = BitmapFactory.Options().apply { inSampleSize = sample }
+        return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
     }
 
     /** 失败条目：没有图，一条一个圆角红底小条（时间 + ✗ + 文件名 + 原因；它们不合进网格） */
@@ -347,7 +395,6 @@ class MainActivity : AppCompatActivity() {
         // （「打开热点设置」按钮常驻在状态行下面，不受这里影响）
         binding.readingBlock.isVisible = hotspotIface != null
         binding.noIpBlock.isVisible = hotspotIface == null
-        binding.hotspotTag.isVisible = hotspotIface != null
         binding.localAddresses.isVisible = hotspotIface == null && ifaces.isNotEmpty()
         if (hotspotIface == null && ifaces.isNotEmpty()) {
             binding.localAddresses.text =
@@ -360,9 +407,22 @@ class MainActivity : AppCompatActivity() {
             binding.userValue.text = binding.userInput.text.toString().ifBlank { Config.user }
             binding.passwordValue.text = binding.passwordInput.text.toString().ifBlank { Config.password }
         }
-        binding.userRow.isVisible = !anonymous
-        binding.passwordRow.isVisible = !anonymous
+        // 匿名登录时是 2 格（端口 / 登录），账号密码时是 3 格（端口 / 用户 / 密码）
+        binding.loginCell.isVisible = anonymous
+        binding.userCell.isVisible = !anonymous
+        binding.passwordCell.isVisible = !anonymous
         binding.anonymousNote.isVisible = anonymous
+    }
+
+    /**
+     * 匿名登录时用户名 / 密码用不上：整块降到 0.42（设计稿的禁用态），不藏起来 ——
+     * 藏了用户就不知道关掉「允许匿名登录」之后要填什么
+     */
+    private fun setAccountFieldsEnabled(enabled: Boolean) {
+        binding.userInput.isEnabled = enabled
+        binding.passwordInput.isEnabled = enabled
+        binding.userField.alpha = if (enabled) 1f else 0.42f
+        binding.passwordField.alpha = if (enabled) 1f else 0.42f
     }
 
     private fun portText() = binding.portInput.text.toString().ifBlank { Config.port.toString() }
@@ -546,8 +606,7 @@ class MainActivity : AppCompatActivity() {
         binding.passwordInput.setText(Config.password)
         binding.folderInput.setText(Config.folder)
         binding.anonymousSwitch.isChecked = Config.anonymous
-        binding.userInput.isEnabled = !Config.anonymous
-        binding.passwordInput.isEnabled = !Config.anonymous
+        setAccountFieldsEnabled(!Config.anonymous)
     }
 
     private fun snackbar(text: String) {
@@ -557,7 +616,7 @@ class MainActivity : AppCompatActivity() {
     private companion object {
         const val KEY_ADVANCED = "advanced_open"
 
-        /** 网格列数：跟卡片圆角、间距一起构成「最近收到」的几何，改这里就够 */
-        const val GRID_COLUMNS = 3
+        /** 小图条放几张：跟间距、圆角一起构成「最近收到」的几何，改这里就够 */
+        const val MINI_TILES = 5
     }
 }

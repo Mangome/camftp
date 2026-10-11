@@ -33,7 +33,7 @@ app/src/main/java/io/github/mangome/camftp/
 ├── CameraProfile.kt       机型差异=数据（NIKON_Z50II / GENERIC_NIKON）
 ├── Sink.kt                interface Sink + StoreResult（含缩略图字节）
 ├── MediaStoreSink.kt      入库：图片视频→DCIM/<dir>，其它→Download/<dir>；失败保留源文件；成功时生成缩略图
-├── Thumbnailer.kt         入库时生成 384px 小图（图片 / 视频首帧 / RAW 走 EmbeddedJpeg；自己修 EXIF 方向）
+├── Thumbnailer.kt         入库时生成 1280px 小图（图片 / 视频首帧 / RAW 走 EmbeddedJpeg；自己修 EXIF 方向）
 ├── ExifTransform.kt       **纯 JVM**：EXIF orientation → 旋转角 + 翻转（表错了竖拍就躺倒，单测守着）
 ├── EmbeddedJpeg.kt        **纯 JVM**：从任意文件里扫出最大的内嵌 JPEG（NEF 出图的唯一通路，单测守着）
 ├── FtpEngine.kt           纯 JVM：FtpServer 配置/生命周期 + 单线程入库 executor + retryPending()
@@ -43,14 +43,14 @@ app/src/main/java/io/github/mangome/camftp/
 ├── FtpService.kt          前台服务 connectedDevice、静音常驻通知、wakelock、START_STICKY
 ├── FtpState.kt            StateFlow 单例状态通道（服务→UI；另存相机会话数 / 上次连接时间）；「最近收到」落盘在 filesDir/recent.bin
 ├── NetworkInfo.kt         枚举 IPv4、过滤虚拟网卡、识别热点网卡
-├── SquareFrameLayout.kt   方图容器：网格 3 列等宽 + 每格 1:1
+├── SquareFrameLayout.kt   方图容器：小图条几格等宽 + 每格 1:1
 └── MainActivity.kt        单屏 UI
 app/src/main/res/
 ├── values/colors.xml + values-night/colors.xml   全部颜色（cam_* 命名，深浅两套）
 ├── values/themes.xml      Theme.CamFtp：M3 槽位映射 + 状态栏/导航栏图标明暗
-├── drawable/              启动图标三层 + 通知图标 + 界面图标（chevron / 信号塔 / 失败叉 / 划掉的相纸）+ bg_tag / bg_failure / bg_field(_error) / bg_event_empty
-├── layout/activity_main.xml   根是 FrameLayout：panelBackdrop + ScrollView，面板通栏；内容 = 热点按钮 → 读数卡 → 折叠的高级设置 → 最近收到（空态虚线卡 + 网格 + 失败条）→ 关于
-├── layout/item_recent.xml     「最近收到」的一格：圆角方图 + 后缀徽标 + 文件名
+├── drawable/              启动图标三层 + 通知图标 + 界面图标（chevron / 信号塔 / 失败叉 / 划掉的相纸）+ bg_failure / bg_field(_error) / bg_event_empty
+├── layout/activity_main.xml   根是 FrameLayout：panelBackdrop + ScrollView，面板通栏；内容 = 最近收到（计数 + 大图 + 一行 5 张小图 + 空态虚线卡 + 失败条）→ 细线 → 读数（地址 + 值格）→ 热点按钮 → 细线 → 折叠的高级设置 → 关于。全屏没有卡片，分区靠 1dp 细线 + 留白
+├── layout/item_recent.xml     「最近收到」小图条的一格：圆角方图（8dp）+ 后缀徽标，不写文件名
 └── layout/item_failure.xml    失败条目的一条：时间 + ✗ + 文件名 + 原因
 app/src/test/java/.../  FtpEngineTest 11 · FtpStateTest 4 · EmbeddedJpegTest 4 · ExifTransformTest 3 · HotspotWatchTest 1 · NetworkInfoTest 5
 ```
@@ -78,17 +78,17 @@ app/src/test/java/.../  FtpEngineTest 11 · FtpStateTest 4 · EmbeddedJpegTest 4
 - **面板状态词的唯一出处是 `updateCameraHint()`**（只有它知道有没有热点），`render()` 别再自己 setText，会被它盖掉。
 - **颜色只写 `values/colors.xml` 与 `values-night/colors.xml`**（`cam_*` 命名），由 `Theme.CamFtp` 映射到 M3 槽位 —— 别在 layout 里写死颜色。
 - **34sp 地址与 26sp 状态词必须显式写 `android:lineHeight`** —— 不写就是赌 ROM 的字体度量（HyperOS 上被量成 0.75×，字被切掉，见 §4）。
-- **「热点」标记留在读数卡标题行右侧** —— 34sp 等宽下 `10.130.223.120` 已占满卡片（实测 953/964px），跟地址同行只会被挤出屏幕。
-- **「整屏只有一个视觉高峰」= 连接面板那块暗底色**，不靠字号抢：白卡是「往相机里填什么」，暗面板是「现在怎么样」，两块各管一事。地址读数保持 34sp 等宽不缩（相机要照着输）。
+- **读数区没有卡片、没有标题、也没有「热点」药丸** —— 34sp 等宽下 `10.130.223.120`（实测 953/964px）自己就占满一行，加东西只会被挤出屏幕。地址靠「紧跟在照片之后 + 页面唯一的大字」自证身份。
+- **「整屏只有一个视觉高峰」= 连接面板那块暗底色**，其余分区靠留白与 1dp 细线（`?attr/colorOutlineVariant`），全屏没有卡片也没有阴影。地址读数保持 34sp 等宽不缩（相机要照着输）。
 - **连接面板：五态 + 一块会呼吸的灯**（闲置墨蓝 / 连上·传输中暗绿 / 缺热点暗红，只换色相不换明度），副行只在**传输中**（报正在传的文件名）与**断开但连过**（报「上次连接 HH:mm」）时出现。**整屏只有这一处动效**（`setLinkLamp()`，动画关掉的机器就常亮）。
-- **热点没开就把 34sp 读数一并收起来**（那个 IP 对相机完全没用），读数卡里只留一行引导 + 一行「当前网卡：…」兜底 —— 换 ROM 认错热点网卡名时地址还抄得到，别删。
-- **「打开热点设置」按钮常驻在卡下面，不跟卡一起隐显** —— 卡是「现在缺什么」的提醒，按钮是「该怎么办」的动作；按钮跟着卡消失的话，热点开着时就没地方改热点设置了（关掉、换密码都要回到这个页）。
+- **热点没开就把 34sp 读数一并收起来**（那个 IP 对相机完全没用），读数区只留一行引导 + 一行「当前网卡：…」兜底 —— 换 ROM 认错热点网卡名时地址还抄得到，别删。
+- **「打开热点设置」按钮常驻在读数之后，不跟读数一起隐显** —— 读数区是「现在缺什么」的提醒，按钮是「该怎么办」的动作；按钮跟着消失的话，热点开着时就没地方改热点设置了（关掉、换密码都要回到这个页）。
 - **不熄屏用 layout 的 `android:keepScreenOn`**，别写 `FLAG_KEEP_SCREEN_ON` —— 前者按「窗口可见」自动失效，后者要在 `onResume`/`onPause` 配对加清，漏一边就把用户屏幕焊死。
-- **「最近收到」不引 RecyclerView**（≤12 格整块重建更省事，material 只带进来 1.1.0 的老版本），也不上 Compose（单屏，只换来编译器 / BOM 对齐风险）。
-- **网格几何**：`SquareFrameLayout` 保 1:1；最后一行不满要补 `Space`，否则格子被拉宽、跟上面几行对不齐。
-- **输入框别用 `TextInputLayout`** —— 它的浮动标签会给 EditText 强加 16dp 上下内边距，44dp 的框把 15sp 的字裁掉一半（真机实测）。现在是 `EditText` + `bg_field.xml` 自绘，错误提示是框下独立 TextView，`showFieldError()` 一次换描边与显隐。
+- **「最近收到」不引 RecyclerView**（最多 6 张 —— 大图 + 一行 5 张 —— 整块重建更省事，material 只带进来 1.1.0 的老版本），也不上 Compose（单屏，只换来编译器 / BOM 对齐风险）。
+- **「最近收到」的几何**：最新一张是固定 186dp 高的 16:9 大图（390dp 机身下的设计值），其余最多 5 张走一行小图 —— `SquareFrameLayout` 保 1:1，不满 5 格补 `Space` 撑住宽度。**超过 5 张的只在计数里体现**，没有分页也没有「查看全部」（设计稿定的：一屏就是全部出口）。
+- **输入框别用 `TextInputLayout`** —— 它的浮动标签会给 EditText 强加 16dp 上下内边距，48dp 的框把 15sp 的字裁掉一半（真机实测）。现在是 `EditText` + `bg_field.xml` 自绘，错误提示是框下独立 TextView，`showFieldError()` 一次换描边与显隐。
 - **弹窗只用 `MaterialAlertDialogBuilder`** —— 壳在 `values/themes.xml` 的 `ThemeOverlay.CamFtp.MaterialAlertDialog` 里统一（20dp 圆角 + `?attr/colorSurface` 底）。`AlertDialog.Builder` 读的是 `alertDialogTheme`，落回 AppCompat 的 M2 壳（圆角 4dp、按钮贴底），跟卡片语汇对不上。
-- **界面尺寸以 Pixso 设计稿为准**（「主屏 · 连接与读数」，6 状态 × 深浅 = 12 画板），别凭感觉调。相对上一版的结构性改动：面板通栏到屏幕顶端（`panelBackdrop` + `syncBackdrop()`，配 `windowLightStatusBar=false`，状态栏那一条永远是暗面板色）、地址下有 1px 分隔线、「热点」是药丸底、最近收到标题右侧有「N / 12」计数（空态时它也写「0 / 12」）、失败条目是独立小条、空态是一块虚线卡（划掉的相纸 + 「还没收到照片」+ 描边按钮，`anyStored` 一真就整块收起，自检失败留在原地可重试）、界面图标是线性描边圆头（母版在 `branding/icons/`，跟启动图标那套「填充不描边」是两回事）。
+- **界面尺寸以设计稿为准**（Penpot 页面 `CamFtp · 设计交付`：`00 · 设计语言` 是 token 与硬规则、`01 · 组件` 是零件、名字带 `新 · ` 的 12 张是当前这版，`浅色 *` / `深色 *` 是上一版留作对照），别凭感觉调。这一版相对上一版的结构性改动：最近收到提到面板下面（计数 + 大图 + 一行小图 + 失败条，失败条因此回到首屏）、读数不再装卡片、热点入口挪到读数之后、高级设置与关于不再是卡片、参数从三行表格变成值格（匿名 2 格 / 账号 3 格）、「热点」药丸删掉、页边距窄屏 16dp（`values/dimens.xml`）常规 20dp（`values-sw380dp/`）、控件高度统一 48（圆角 14）；面板通栏到屏幕顶端（`panelBackdrop` + `syncBackdrop()`，配 `windowLightStatusBar=false`，状态栏那一条永远是暗面板色）与空态虚线卡（`anyStored` 一真就整块收起，自检失败留在原地可重试）不变。
 
 ### 配置与网络
 
@@ -115,7 +115,7 @@ app/src/test/java/.../  FtpEngineTest 11 · FtpStateTest 4 · EmbeddedJpegTest 4
 - **MediaStore 入库走两段式**：`insert(IS_PENDING=1)` → 拷字节 → `update(IS_PENDING=0)` → 删源文件。`RELATIVE_PATH` 图片视频用 `DCIM/<dir>`、其它用 `Download/<dir>`；`.nef` 手动映射成 `image/x-nikon-nef`，推不出来就落 `Download/`，不崩。**同名冲突交给 MediaStore 自动改名**（`DSC_0001 (1).JPG`），不自己处理。
 - **「最近收到」落盘别改成 SharedPreferences + JSON**：`org.json` 在 JVM 单测里是桩，一用 `FtpStateTest` 就废。现在是 `DataOutputStream` 定长字段 + `MAGIC` + 每条末端带缩略图（`writeUTF` 自带长度前缀，文件名里带制表符换行也不串行）。落盘失败全吞（`runCatching`）：丢的只是历史，不能因为写文件失败把接收链路带停。**会话数 / `lastConnectAt` 不落盘** —— 那是「这一次运行」的实况。
 - **缩略图必须跟条目一起存**：原图被相册删掉后网格照样要显示它，这样也没有「缩略图缓存目录」的生命周期问题（上限 12 条，整块重写，永不留孤儿文件）。
-- **缩略图自己生成，不用 `ContentResolver.loadThumbnail`**：它对 NEF / RAW 无效（`BitmapFactory` 不认 TIFF），且原图被删后就没了。规格：长边 384px / JPEG q=80。UI 侧按 `uri` 做 `LruCache`（8MB）在 IO 线程解码，解回来**认 `view.tag` 不认 view**（每次入库都整块重建网格）。
+- **缩略图自己生成，不用 `ContentResolver.loadThumbnail`**：它对 NEF / RAW 无效（`BitmapFactory` 不认 TIFF），且原图被删后就没了。规格：长边 1280px / JPEG q=80（按首屏那张大图定的：350dp 在 3.0~3.5 倍屏上要 1050~1365px）。UI 侧按 `uri + 目标尺寸` 做 `LruCache`（16MB）在 IO 线程解码，**按目标尺寸 `inSampleSize` 降采样**（小图那 5 格不该各拖一份 4.4MB 的位图），解回来**认 `view.tag` 不认 view**（每次入库都整块重建）。
 - **EXIF 方向自己修**：`BitmapFactory` 不应用 orientation，不修的话竖拍在网格里是躺倒的（方形裁剪下就是构图错不错的问题）。**先缩后转**，转 8000×6000 要多占几十 MB。**别指望 `ImageDecoder`**：查过 AOSP 源码，它一处 `orientation` 都没用。
 - **RAW 不认后缀白名单**：`BitmapFactory` 解不出来就去 `EmbeddedJpeg.largest()`，谁嵌了 JPEG 谁就有图，换品牌 / 机型不用改代码。不认后缀的视频（`.mts` 等）按 `VIDEO` 集合兜底试首帧，否则会把几 GB 的文件当图片整读一遍找 JPEG；找预览前还有一道 256MB 的大小阀（入库是单线程，绝不能被大文件堵住）。
 - **点「最近收到」的一格打开原图前先探活**（`openAssetFileDescriptor(uri, "r")`）：图在相册里被删掉后 `ACTION_VIEW` 照样启动得起来，用户看到的是「应用打不开这个文件」而不是我们的提示。**缩略图还在不代表原图还在**。只有 `uri` 非空的格子才可点，所以每条成功入库都必须带上 `uri`。
@@ -212,6 +212,7 @@ app/src/test/java/.../  FtpEngineTest 11 · FtpStateTest 4 · EmbeddedJpegTest 4
 - 热点识别与自动起停：ColorOS（`ap0`）与 HyperOS 3（`wlan2`）两套 ROM；服务在跑时关热点 → 自动停
 - UI：连接面板五态、「最近收到」网格（落盘、强停重开还在、点格打开原图、原图被删后弹提示）、自检按钮显隐与落盘、配置校验与热重启、「打开热点设置」直达个人热点页
 - **Pixso 那版界面在 OPPO PLG110 上逐状态验过**：缺热点 / 等待 / 断开（含「上次连接」副行）/ 正在接收（含文件名）/ 地址卡 / 网格与计数 / 展开态 / 校验红框 / 深浅两套
+- 面板上内边距从「6dp + 系统栏 inset」改成固定 20dp（合计 44dp）是按设计稿算的，没上机量过
 - 服务：通知 LOW / 静音 / ongoing，前台服务类型 `connectedDevice`，息屏接收照旧
 
 ### 没验 / 有风险

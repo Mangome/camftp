@@ -55,7 +55,7 @@ object FtpState {
     private const val MAGIC = 2
     private const val STORE_NAME = "recent.bin"
 
-    /** 单条缩略图的上限：384px / q80 实测 ~30KB，留足余量；超出的只会是文件写坏了 */
+    /** 单条缩略图的上限：1280px / q80 实测 ~200KB，留足余量；超出的只会是文件写坏了 */
     private const val MAX_THUMB = 4 * 1024 * 1024
 
     private val _snapshot = MutableStateFlow(Snapshot())

@@ -19,7 +19,7 @@
 
     <!-- 设计稿新增的四档（Pixso「主屏 · 连接与读数」）：按钮/标签的浅色药丸底、输入框底、缩略图占位底、失败条底 -->
     <color name="cam_primary_tonal">#E2EEF1</color>
-    <color name="cam_field_bg">#F2F4F6</color>
+    <color name="cam_field_bg">#EBEEF2</color>
     <color name="cam_thumb_bg">#E3E6EA</color>
     <color name="cam_error_tint">#F9EEED</color>
 

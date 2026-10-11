@@ -18,7 +18,7 @@
 
     <!-- 同名字段在深色下的一档（跟 values 里的四档一一对应） -->
     <color name="cam_primary_tonal">#22363F</color>
-    <color name="cam_field_bg">#1F252B</color>
+    <color name="cam_field_bg">#1B2127</color>
     <color name="cam_thumb_bg">#232930</color>
     <color name="cam_error_tint">#342A29</color>
 

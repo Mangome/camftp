@@ -11,7 +11,11 @@ import java.io.ByteArrayOutputStream
 import java.io.File
 
 /**
- * 入库时生成一张小图（长边 384px / JPEG q=80），跟着「最近收到」一起落盘。
+ * 入库时生成一张小图（长边 1280px / JPEG q=80），跟着「最近收到」一起落盘。
+ *
+ * 1280 是「大图那一格」定的：首屏最新一张是 350dp 宽（390dp 机身减两侧页边距），在 3.0~3.5 倍屏上
+ * 要 1050~1365px，而这张图只用缩略图出图 —— 384px 铺到 350dp 上会糊。小图那 5 格按目标尺寸降采样，
+ * 不用单独再存一份小图（见 `MainActivity.decodeThumb`）。
  *
  * 不用 `ContentResolver.loadThumbnail` 有两条原因：
  *  1. NEF 这类 RAW 系统解码器解不了，只有自己抽内嵌 JPEG 才有图（[EmbeddedJpeg]）；
@@ -24,7 +28,7 @@ import java.io.File
  */
 object Thumbnailer {
 
-    private const val MAX_EDGE = 384
+    private const val MAX_EDGE = 1280
     private const val QUALITY = 80
 
     /**
@@ -75,7 +79,7 @@ object Thumbnailer {
     }.map(::exifTransform).getOrDefault(ExifTransform.NONE)
 
     /**
-     * 先缩后转：转整张 8000×6000 的原图要多占一份几十 MB 的位图，而这一步只是为了 384px 的缩略图。
+     * 先缩后转：转整张 8000×6000 的原图要多占一份几十 MB 的位图，而这一步只是为了 1280px 的缩略图。
      * 等比缩放下「先缩再转」和「先转再缩」结果一样（照片的方向修正只有 90 的倍数和镜像）。
      */
     private fun encode(decoded: Decoded): ByteArray {

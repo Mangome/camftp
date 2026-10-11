@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 常规机身（>= 380dp 宽）的页边距，见 values/dimens.xml -->
+<resources>
+    <dimen name="page_margin">20dp</dimen>
+</resources>

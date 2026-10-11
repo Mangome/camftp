@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 页边距：窄屏（< 380dp，比如 360dp 的机器）收成 16dp，给 34sp 等宽地址腾宽度
+     —— 360dp 下 20dp 页边距只剩 320dp，Roboto Mono 34sp 的 10.130.223.120 要 286dp，再贴边就挤了。
+     390dp 及以上用 20dp（values-sw380dp） -->
+<resources>
+    <dimen name="page_margin">16dp</dimen>
+</resources>

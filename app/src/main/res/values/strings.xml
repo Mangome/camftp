@@ -18,7 +18,6 @@
     <string name="ip_unknown">未分配 IP</string>
 
     <!-- 相机读数 -->
-    <string name="section_camera_title">相机的 FTP 设置</string>
     <string name="camera_no_ip">还没找到本机地址</string>
     <string name="camera_need_hotspot">先在手机上打开便携式热点</string>
     <string name="camera_other_addresses">当前网卡：%1$s</string>
@@ -26,7 +25,8 @@
     <string name="field_port">端口</string>
     <string name="field_user">用户</string>
     <string name="field_password">密码</string>
-    <string name="ip_hotspot_tag">热点</string>
+    <string name="field_login">登录</string>
+    <string name="field_login_anonymous">匿名</string>
     <string name="open_hotspot">打开热点设置</string>
 
     <!-- 跳设置失败时的兜底提示 -->
@@ -52,6 +52,8 @@
     <!-- 最近收到 -->
     <string name="section_events_title">最近收到</string>
     <string name="event_count">%1$d / %2$d</string>
+    <!-- 有收获时补上最新那张的时间：先看「什么时候收的」，再看一共几张 -->
+    <string name="event_count_stamp">%1$d / %2$d · %3$s</string>
     <string name="event_none">还没收到照片</string>
     <string name="event_open_failed">没有应用能打开这个文件</string>
     <string name="event_gone">文件已被删除</string>

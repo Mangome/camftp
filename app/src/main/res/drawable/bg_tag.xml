@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- 「热点」标记的小药丸底（读数卡标题行右侧）。Fill 用在别处会变成一块重的色块，只给这一个角标用 -->
-<shape xmlns:android="http://schemas.android.com/apk/res/android"
-    android:shape="rectangle">
-    <corners android:radius="8dp" />
-    <solid android:color="@color/cam_primary_tonal" />
-</shape>

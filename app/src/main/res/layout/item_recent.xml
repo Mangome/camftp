@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 「最近收到」的一格。缩略图本身是内容，格子不加阴影、不加描边 —— 整屏唯一的高峰还是连接面板那块暗底。
+<!-- 「最近收到」一行小图里的一格（64dp 见方，最新一张之外的那 5 张）。
+     缩略图本身是内容，格子不加阴影、不加描边，文件名也不写（格子太小，写了到 5 列只有几个字，
+     看的是画面不是编号）—— 整屏唯一的高峰还是连接面板那块暗底。
      出不了图（RAW 抽不出预览 / 原图已从相册删掉 / 非媒体文件）时是灰底 + 居中后缀，点击行为不变 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -16,7 +18,7 @@
         android:clickable="true"
         android:focusable="true"
         app:cardBackgroundColor="@color/cam_thumb_bg"
-        app:cardCornerRadius="12dp"
+        app:cardCornerRadius="8dp"
         app:cardElevation="0dp"
         app:strokeWidth="0dp">
 
@@ -40,21 +42,8 @@
                 android:fontFamily="monospace"
                 android:gravity="center"
                 android:textColor="?attr/colorOnSurfaceVariant"
-                android:textSize="12sp"
+                android:textSize="11sp"
                 android:visibility="gone" />
         </io.github.mangome.camftp.SquareFrameLayout>
     </com.google.android.material.card.MaterialCardView>
-
-    <!-- 文件名：同一场景连拍的一串 DSC_18xx 靠缩略图分不出来。左对齐（跟整页一致）；
-         超长中间省略，保住编号和扩展名 -->
-    <TextView
-        android:id="@+id/tileCaption"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:ellipsize="middle"
-        android:fontFamily="monospace"
-        android:maxLines="1"
-        android:textColor="?attr/colorOnSurfaceVariant"
-        android:textSize="11sp" />
 </LinearLayout>
