@@ -45,8 +45,8 @@ object FtpState {
         val transferring: String? = null,
     )
 
-    /** 上限 12 = 网格 3 列的整 4 行（10 会排出 3+3+3+1 的独苗行） */
-    private const val MAX_EVENTS = 12
+    /** 上限 12 = 网格 3 列的整 4 行（10 会排出 3+3+3+1 的独苗行）。UI 用它当「9 / 12」的分母 */
+    const val MAX_EVENTS = 12
 
     /**
      * 落盘格式版本：读不认识就当没存过（**不兼容旧版本**，升级后历史条目丢一次、

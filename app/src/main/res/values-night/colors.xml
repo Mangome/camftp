@@ -16,6 +16,12 @@
     <color name="cam_outline">#3A424B</color>
     <color name="cam_outline_variant">#2A3138</color>
 
+    <!-- 同名字段在深色下的一档（跟 values 里的四档一一对应） -->
+    <color name="cam_primary_tonal">#22363F</color>
+    <color name="cam_field_bg">#1F252B</color>
+    <color name="cam_thumb_bg">#232930</color>
+    <color name="cam_error_tint">#342A29</color>
+
     <color name="cam_inverse_surface">#E3E7EA</color>
     <color name="cam_inverse_on_surface">#1B2025</color>
     <color name="cam_inverse_primary">#0E6E8A</color>

@@ -64,6 +64,6 @@ object Config {
 
     fun portError(value: String): String? {
         val n = value.trim().toIntOrNull() ?: return "必须是数字"
-        return if (n in MIN_PORT..MAX_PORT) null else "端口要在 $MIN_PORT-$MAX_PORT 之间"
+        return if (n in MIN_PORT..MAX_PORT) null else "端口需为 $MIN_PORT - $MAX_PORT"
     }
 }

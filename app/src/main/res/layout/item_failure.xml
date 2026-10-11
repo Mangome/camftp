@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 一条失败记录（「最近收到」网格下方的圆角条）：时间 + ✗ + 文件名 + 原因。
+     它们没有图，所以不占格位 —— 时间和原因是「相机传了但没进相册」的唯一线索 -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="40dp"
+    android:background="@drawable/bg_failure"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="12dp"
+    android:paddingEnd="12dp">
+
+    <TextView
+        android:id="@+id/failTime"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:fontFamily="monospace"
+        android:textColor="@color/cam_status_error"
+        android:textSize="13sp" />
+
+    <ImageView
+        android:layout_width="14dp"
+        android:layout_height="14dp"
+        android:layout_marginStart="8dp"
+        android:contentDescription="@null"
+        android:src="@drawable/ic_fail"
+        app:tint="@color/cam_status_error" />
+
+    <TextView
+        android:id="@+id/failName"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:layout_weight="1"
+        android:ellipsize="middle"
+        android:fontFamily="monospace"
+        android:maxLines="1"
+        android:textColor="@color/cam_status_error"
+        android:textSize="13sp"
+        android:textStyle="bold" />
+
+    <!-- 失败原因（异常信息）是最长的一段，挤压时先压文件名，原因整句保留 -->
+    <TextView
+        android:id="@+id/failDetail"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:maxLines="1"
+        android:textColor="@color/cam_status_error"
+        android:textSize="13sp" />
+</LinearLayout>

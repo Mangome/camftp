@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 失败条（相机传了但没进相册）的底：错误色的浅染，整条是一行小字，不抢照片的视觉 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <corners android:radius="12dp" />
+    <solid android:color="@color/cam_error_tint" />
+</shape>

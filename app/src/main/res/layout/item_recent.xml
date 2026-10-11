@@ -8,14 +8,14 @@
     android:orientation="vertical">
 
     <!-- 圆角和点击水波纹都交给卡片（自己给 ImageView 切圆角要玩 clipToOutline）。
-         底是 surfaceVariant：解码没回来之前不闪白 -->
+         底是缩略图的占位色（设计稿的 ThumbBg）：解码没回来之前不闪白 -->
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/tileCard"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:clickable="true"
         android:focusable="true"
-        app:cardBackgroundColor="?attr/colorSurfaceVariant"
+        app:cardBackgroundColor="@color/cam_thumb_bg"
         app:cardCornerRadius="12dp"
         app:cardElevation="0dp"
         app:strokeWidth="0dp">

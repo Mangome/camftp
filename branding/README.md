@@ -18,10 +18,14 @@
 | `wordmark.svg` | 只用字标的场合（字形见 §6） |
 | `icon-foreground/background/monochrome/full/legacy.svg` | 启动图标的五份设计源 |
 | `icon-notification.svg` | 通知图标设计源（24dp 单色剪影） |
-| `icons/ic_chevron_down.svg` | App 界面图标（折叠箭头），几何语言同源 |
-| `png/mark-512.png` `png/mark.png` `png/favicon.ico` | 位图导出 |
+| `icons/ic_chevron_down.svg` | App 界面图标：折叠箭头（高级设置），几何语言同源 |
+| `icons/ic_chevron_right.svg` | App 界面图标：进入箭头（关于） |
+| `icons/ic_fail.svg` | App 界面图标：入库失败的叉 |
+| `icons/ic_hotspot.svg` | App 界面图标：信号塔（打开热点设置） |
 
 全部是纯路径：没有 `<text>`、没有遮罩、没有渐变、没有位图。
+
+界面图标（`icons/`）是**线性描边圆头**风格（Pixso 设计稿定的），跟启动图标那套「填充路径不描边」不是一回事：启动图标有系统遮罩与缩放的不确定性，界面图标没有。
 
 ## 2. App 里的对应关系
 
@@ -33,6 +37,9 @@
 | `icon-notification.svg` | `res/drawable/ic_notification.xml`（24dp 单色剪影） |
 | `icon-legacy.svg` | `res/mipmap-{m,h,xh,xxh,xxx}dpi/ic_launcher.png`（48/72/96/144/192） |
 | `icons/ic_chevron_down.svg` | `res/drawable/ic_chevron_down.xml` |
+| `icons/ic_chevron_right.svg` | `res/drawable/ic_chevron_right.xml` |
+| `icons/ic_fail.svg` | `res/drawable/ic_fail.xml` |
+| `icons/ic_hotspot.svg` | `res/drawable/ic_hotspot.xml` |
 
 自适应图标的前景/主题层用的是**矢量**（全是填充路径，不描边 —— 描边粗细在不同渲染器下会飘），换密度不用重出图；`mipmap-*` 只剩 legacy 的 `ic_launcher.png`。
 

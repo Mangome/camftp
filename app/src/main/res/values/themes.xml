@@ -5,7 +5,9 @@
          不声明的话浅色背景下是白图标（看不见）—— 按主题明暗自己声明。
          颜色槽位按 values/values-night 的 colors.xml 覆盖（默认 M3 紫不要）。 -->
     <style name="Theme.CamFtp" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="android:windowLightStatusBar">?attr/isLightTheme</item>
+        <!-- 状态栏图标恒用亮色：连接面板通栏到屏幕顶端（见 activity_main.xml 的 panelBackdrop），
+             状态栏那一条在两个主题下都是面板的暗底，深色图标在上面看不见。导航栏还在浅底上，跟着主题走 -->
+        <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowLightNavigationBar">?attr/isLightTheme</item>
 
         <item name="colorPrimary">@color/cam_primary</item>

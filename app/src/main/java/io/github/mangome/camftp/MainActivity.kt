@@ -16,27 +16,26 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
-import android.text.SpannableStringBuilder
-import android.text.Spanned
 import android.text.format.DateUtils
-import android.text.style.ForegroundColorSpan
-import android.text.style.StyleSpan
 import android.util.LruCache
+import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.Space
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
+import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.lifecycleScope
-import com.google.android.material.R as MaterialR
-import com.google.android.material.color.MaterialColors
 import com.google.android.material.snackbar.Snackbar
-import com.google.android.material.textfield.TextInputLayout
 import io.github.mangome.camftp.databinding.ActivityMainBinding
+import io.github.mangome.camftp.databinding.ItemFailureBinding
 import io.github.mangome.camftp.databinding.ItemRecentBinding
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -65,6 +64,9 @@ class MainActivity : AppCompatActivity() {
     private var lamp: ObjectAnimator? = null
     private var lampOn = false
 
+    /** 状态栏高度（edge-to-edge 下内容画到它底下）：panelBackdrop 靠它跟连接面板接上 */
+    private var statusBarInset = 0
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -77,14 +79,31 @@ class MainActivity : AppCompatActivity() {
 
         binding.saveButton.setOnClickListener { saveConfig() }
         binding.anonymousSwitch.setOnCheckedChangeListener { _, checked ->
-            binding.userField.isEnabled = !checked   // 匿名登录时用户名密码用不上
-            binding.passwordField.isEnabled = !checked
+            binding.userInput.isEnabled = !checked   // 匿名登录时用户名密码用不上
+            binding.passwordInput.isEnabled = !checked
             updateCameraHint()
         }
+        // 一改就清掉这个字段上一次的报错（TextInputLayout 在时的旧行为）
+        listOf(
+            binding.portInput to binding.portError,
+            binding.folderInput to binding.folderError,
+            binding.userInput to binding.userError,
+            binding.passwordInput to binding.passwordError,
+        ).forEach { (input, error) -> input.doAfterTextChanged { showFieldError(input, error, null) } }
         binding.hotspotButton.setOnClickListener { openHotspotSettings() }
         binding.selfTestButton.setOnClickListener { runSelfTest() }
         binding.aboutButton.setOnClickListener { showAbout() }
         binding.advancedHeader.setOnClickListener { setAdvancedOpen(!binding.advancedBody.isVisible) }
+
+        // 连接面板通栏到屏幕顶端（见 activity_main.xml）：面板自己的底色铺满状态栏那一条，
+        // 面板高度/滚动位置一变就重新对齐 backdrop
+        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
+            statusBarInset = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
+            syncBackdrop()
+            insets
+        }
+        binding.linkPanel.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> syncBackdrop() }
+        binding.scroll.setOnScrollChangeListener { _, _, _, _, _ -> syncBackdrop() }
 
         lifecycleScope.launch {
             FtpState.snapshot.collect { render(it) }
@@ -147,13 +166,28 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
+     * 状态栏那一条（[ActivityMainBinding.panelBackdrop]）跟着面板走：面板还在顶部时它是「状态栏高 + 面板高」，
+     * 面板滚上去就一路缩到只剩状态栏那一条。状态栏图标是亮色的（见 themes.xml），底下得一直是暗的面板色
+     */
+    private fun syncBackdrop() {
+        val panel = binding.linkPanel.height
+        val height = statusBarInset + panel - binding.scroll.scrollY
+        binding.panelBackdrop.layoutParams.height =
+            height.coerceIn(statusBarInset, statusBarInset + panel)
+        binding.panelBackdrop.requestLayout()
+    }
+
+    /**
      * 「最近收到」= 成功条目的缩略图网格 + 失败条目的日志小字。
      * 成功条目不再显示时间和目录（目录就是 `DCIM/<配置的目录>`，每行都一样；图本身带着「刚拍的」的时间感），
      * 失败条目没有图，时间和原因照旧 —— 那是「相机传了但没进相册」的唯一线索。
      */
     private fun renderEvents(events: List<FtpState.Event>) {
+        val stored = events.filter { it.ok }
         binding.eventEmpty.isVisible = events.isEmpty()
-        renderGrid(events.filter { it.ok })
+        binding.eventCount.isVisible = stored.isNotEmpty()
+        binding.eventCount.text = getString(R.string.event_count, stored.size, FtpState.MAX_EVENTS)
+        renderGrid(stored)
         renderFailures(events.filter { !it.ok })
     }
 
@@ -220,38 +254,25 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** 失败条目：没有图，退回原来的日志小字（等宽 + ✗ + 语义色；它们不合进网格） */
+    /** 失败条目：没有图，一条一个圆角红底小条（时间 + ✗ + 文件名 + 原因；它们不合进网格） */
     private fun renderFailures(events: List<FtpState.Event>) {
-        binding.eventLog.isVisible = events.isNotEmpty()
-        if (events.isEmpty()) {
-            binding.eventLog.text = null
-            return
+        binding.eventFailures.isVisible = events.isNotEmpty()
+        binding.eventFailures.removeAllViews()
+        events.forEach { event ->
+            val row = ItemFailureBinding.inflate(layoutInflater, binding.eventFailures, false)
+            val stamp = if (DateUtils.isToday(event.at)) eventTime else eventDateTime
+            row.failTime.text = stamp.format(Date(event.at))
+            row.failName.text = event.name
+            row.failDetail.isVisible = event.detail.isNotBlank()
+            row.failDetail.text = event.detail
+            binding.eventFailures.addView(
+                row.root,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                ).apply { topMargin = if (binding.eventFailures.childCount > 0) gridGap else 0 },
+            )
         }
-
-        val fail = ContextCompat.getColor(this, R.color.cam_status_error)
-        val dim = MaterialColors.getColor(binding.eventLog, MaterialR.attr.colorOnSurfaceVariant)
-        val sb = SpannableStringBuilder()
-        events.forEachIndexed { i, e ->
-            if (i > 0) sb.append("\n")
-            var start = sb.length
-            val stamp = if (DateUtils.isToday(e.at)) eventTime else eventDateTime
-            sb.append(stamp.format(Date(e.at)))
-            sb.append("  ")
-            sb.setSpan(ForegroundColorSpan(dim), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-            start = sb.length
-            sb.append("✗ ")
-            sb.setSpan(ForegroundColorSpan(fail), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-            start = sb.length
-            sb.append(e.name)
-            sb.setSpan(StyleSpan(Typeface.BOLD), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-            if (e.detail.isNotBlank()) {
-                sb.append("  ")
-                start = sb.length
-                sb.append(e.detail)
-                sb.setSpan(ForegroundColorSpan(dim), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-            }
-        }
-        binding.eventLog.text = sb
     }
 
     /**
@@ -306,6 +327,8 @@ class MainActivity : AppCompatActivity() {
             else -> R.color.cam_instrument to R.color.cam_on_instrument
         }
         binding.linkPanel.backgroundTintList =
+            ColorStateList.valueOf(ContextCompat.getColor(this, panelColor))
+        binding.panelBackdrop.backgroundTintList =
             ColorStateList.valueOf(ContextCompat.getColor(this, panelColor))
         binding.statusText.setTextColor(ContextCompat.getColor(this, textColor))
 
@@ -380,14 +403,25 @@ class MainActivity : AppCompatActivity() {
         val folder = binding.folderInput.text.toString().trim()
         val anonymous = binding.anonymousSwitch.isChecked
 
-        var bad: TextInputLayout? = null
-        Config.portError(portText)?.let { binding.portField.error = it; bad = binding.portField }
-        if (!anonymous) {
-            if (user.isEmpty()) { binding.userField.error = getString(R.string.field_required); bad = bad ?: binding.userField }
-            if (password.isEmpty()) { binding.passwordField.error = getString(R.string.field_required); bad = bad ?: binding.passwordField }
+        val portError = Config.portError(portText)
+        showFieldError(binding.portInput, binding.portError, portError)
+        var bad = portError != null
+        if (anonymous) {
+            // 匿名登录时这两项用不上，上一次的红框得清掉（否则手动关掉开关前它们一直是红的）
+            showFieldError(binding.userInput, binding.userError, null)
+            showFieldError(binding.passwordInput, binding.passwordError, null)
+        } else {
+            val required = getString(R.string.field_required)
+            val userError = required.takeIf { user.isEmpty() }
+            val passwordError = required.takeIf { password.isEmpty() }
+            showFieldError(binding.userInput, binding.userError, userError)
+            showFieldError(binding.passwordInput, binding.passwordError, passwordError)
+            bad = bad || userError != null || passwordError != null
         }
-        if (folder.isEmpty()) { binding.folderField.error = getString(R.string.field_required); bad = bad ?: binding.folderField }
-        if (bad != null) {
+        val folderError = getString(R.string.field_required).takeIf { folder.isEmpty() }
+        showFieldError(binding.folderInput, binding.folderError, folderError)
+        bad = bad || folderError != null
+        if (bad) {
             setAdvancedOpen(true)   // 错误提示在折叠区里，用户得看得见
             return
         }
@@ -494,14 +528,25 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * 字段校验的视觉：框的描边换错误色 + 框下 12sp 提示。**没用 TextInputLayout** —— 它的浮动标签
+     * 会给 EditText 强制加 16dp 上下内边距，44dp 的框里 15sp 的字被裁掉一半（真机实测）。
+     * [message] = null 就是清掉
+     */
+    private fun showFieldError(input: EditText, error: TextView, message: String?) {
+        input.setBackgroundResource(if (message == null) R.drawable.bg_field else R.drawable.bg_field_error)
+        error.isVisible = message != null
+        error.text = message
+    }
+
     private fun fillConfigFields() {
         binding.portInput.setText(Config.port.toString())
         binding.userInput.setText(Config.user)
         binding.passwordInput.setText(Config.password)
         binding.folderInput.setText(Config.folder)
         binding.anonymousSwitch.isChecked = Config.anonymous
-        binding.userField.isEnabled = !Config.anonymous
-        binding.passwordField.isEnabled = !Config.anonymous
+        binding.userInput.isEnabled = !Config.anonymous
+        binding.passwordInput.isEnabled = !Config.anonymous
     }
 
     private fun snackbar(text: String) {

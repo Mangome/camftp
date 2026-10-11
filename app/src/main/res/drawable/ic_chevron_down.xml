@@ -1,10 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 折叠箭头（高级设置）。几何母版 branding/icons/ic_chevron_down.svg；形状与配色约定见 branding/README.md。
-     填充路径（不描边）：描边粗细会随渲染器飘；颜色由主题 tint 给。 -->
+<!-- 折叠箭头（高级设置）。母版 branding/icons/ic_chevron_down.svg（设计稿 Pixso → 线性描边圆头）。
+     展开态由使用处旋转 180°（见 MainActivity.setAdvancedOpen），不再另出一份 up 图标。
+     颜色由主题 tint 给 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="24dp"
-    android:height="24dp"
-    android:viewportWidth="24"
-    android:viewportHeight="24">
-    <path android:fillColor="#FFFFFFFF" android:pathData="M5.29,9.36L11.58,15.64Q12,16.06 12.42,15.64L18.71,9.36L17.29,7.94L12,13.24L6.71,7.94Z" />
+    android:width="20dp"
+    android:height="20dp"
+    android:viewportWidth="20"
+    android:viewportHeight="20">
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M5,7.5L10,12.5L15,7.5"
+        android:strokeColor="#FF5C6672"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="1.666667" />
 </vector>
