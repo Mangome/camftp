@@ -141,8 +141,9 @@ class MainActivity : AppCompatActivity() {
         // 连接面板的文字由 updateCameraHint() 唯一负责（它才知道有没有热点），这里只管事件列表
         updateCameraHint()
         renderEvents(state.events)
-        // 本进程内已经有成功入库（真图或自检图）→ 入库链路已被证明，自检按钮收起来
-        binding.selfTestButton.isVisible = !state.anyStored
+        // 空态整块（虚线卡 + 「写入测试图」）：链路被证明过（真图或自检图成功入库）就收起。
+        // anyStored 跟着条目落盘：重启后不会又冒出来。自检失败时它还是 false，卡片留在原地可重试
+        binding.eventEmpty.isVisible = !state.anyStored
     }
 
     /** 副行的时间戳：同样固定 24 小时制 [SimpleDateFormat]（理由见 [eventTime]） */
@@ -184,8 +185,7 @@ class MainActivity : AppCompatActivity() {
      */
     private fun renderEvents(events: List<FtpState.Event>) {
         val stored = events.filter { it.ok }
-        binding.eventEmpty.isVisible = events.isEmpty()
-        binding.eventCount.isVisible = stored.isNotEmpty()
+        // 计数常显（设计稿空态里也写着「0 / 12」）：它是网格的容量刻度，不是「有收获」的标记
         binding.eventCount.text = getString(R.string.event_count, stored.size, FtpState.MAX_EVENTS)
         renderGrid(stored)
         renderFailures(events.filter { !it.ok })

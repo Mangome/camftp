@@ -48,8 +48,8 @@ app/src/main/java/io/github/mangome/camftp/
 app/src/main/res/
 ├── values/colors.xml + values-night/colors.xml   全部颜色（cam_* 命名，深浅两套）
 ├── values/themes.xml      Theme.CamFtp：M3 槽位映射 + 状态栏/导航栏图标明暗
-├── drawable/              启动图标三层 + 通知图标 + 界面图标（chevron / 信号塔 / 失败叉）+ bg_tag / bg_failure / bg_field(_error)
-├── layout/activity_main.xml   根是 FrameLayout：panelBackdrop + ScrollView，面板通栏；内容 = 热点按钮 → 读数卡 → 折叠的高级设置 → 最近收到（网格 + 失败条）→ 关于
+├── drawable/              启动图标三层 + 通知图标 + 界面图标（chevron / 信号塔 / 失败叉 / 划掉的相纸）+ bg_tag / bg_failure / bg_field(_error) / bg_event_empty
+├── layout/activity_main.xml   根是 FrameLayout：panelBackdrop + ScrollView，面板通栏；内容 = 热点按钮 → 读数卡 → 折叠的高级设置 → 最近收到（空态虚线卡 + 网格 + 失败条）→ 关于
 ├── layout/item_recent.xml     「最近收到」的一格：圆角方图 + 后缀徽标 + 文件名
 └── layout/item_failure.xml    失败条目的一条：时间 + ✗ + 文件名 + 原因
 app/src/test/java/.../  FtpEngineTest 11 · FtpStateTest 4 · EmbeddedJpegTest 4 · ExifTransformTest 3 · HotspotWatchTest 1 · NetworkInfoTest 5
@@ -87,7 +87,7 @@ app/src/test/java/.../  FtpEngineTest 11 · FtpStateTest 4 · EmbeddedJpegTest 4
 - **「最近收到」不引 RecyclerView**（≤12 格整块重建更省事，material 只带进来 1.1.0 的老版本），也不上 Compose（单屏，只换来编译器 / BOM 对齐风险）。
 - **网格几何**：`SquareFrameLayout` 保 1:1；最后一行不满要补 `Space`，否则格子被拉宽、跟上面几行对不齐。
 - **输入框别用 `TextInputLayout`** —— 它的浮动标签会给 EditText 强加 16dp 上下内边距，44dp 的框把 15sp 的字裁掉一半（真机实测）。现在是 `EditText` + `bg_field.xml` 自绘，错误提示是框下独立 TextView，`showFieldError()` 一次换描边与显隐。
-- **界面尺寸以 Pixso 设计稿为准**（「主屏 · 连接与读数」，6 状态 × 深浅 = 12 画板），别凭感觉调。相对上一版的结构性改动：面板通栏到屏幕顶端（`panelBackdrop` + `syncBackdrop()`，配 `windowLightStatusBar=false`，状态栏那一条永远是暗面板色）、地址下有 1px 分隔线、「热点」是药丸底、最近收到标题右侧有「N / 12」计数、失败条目是独立小条、界面图标是线性描边圆头（母版在 `branding/icons/`，跟启动图标那套「填充不描边」是两回事）。
+- **界面尺寸以 Pixso 设计稿为准**（「主屏 · 连接与读数」，6 状态 × 深浅 = 12 画板），别凭感觉调。相对上一版的结构性改动：面板通栏到屏幕顶端（`panelBackdrop` + `syncBackdrop()`，配 `windowLightStatusBar=false`，状态栏那一条永远是暗面板色）、地址下有 1px 分隔线、「热点」是药丸底、最近收到标题右侧有「N / 12」计数（空态时它也写「0 / 12」）、失败条目是独立小条、空态是一块虚线卡（划掉的相纸 + 「还没收到照片」+ 描边按钮，`anyStored` 一真就整块收起，自检失败留在原地可重试）、界面图标是线性描边圆头（母版在 `branding/icons/`，跟启动图标那套「填充不描边」是两回事）。
 
 ### 配置与网络
 

@@ -22,6 +22,7 @@
 | `icons/ic_chevron_right.svg` | App 界面图标：进入箭头（关于） |
 | `icons/ic_fail.svg` | App 界面图标：入库失败的叉 |
 | `icons/ic_hotspot.svg` | App 界面图标：信号塔（打开热点设置） |
+| `icons/ic_image_off.svg` | App 界面图标：划掉的相纸（「最近收到」空态卡） |
 
 全部是纯路径：没有 `<text>`、没有遮罩、没有渐变、没有位图。
 
@@ -40,6 +41,7 @@
 | `icons/ic_chevron_right.svg` | `res/drawable/ic_chevron_right.xml` |
 | `icons/ic_fail.svg` | `res/drawable/ic_fail.xml` |
 | `icons/ic_hotspot.svg` | `res/drawable/ic_hotspot.xml` |
+| `icons/ic_image_off.svg` | `res/drawable/ic_image_off.xml` |
 
 自适应图标的前景/主题层用的是**矢量**（全是填充路径，不描边 —— 描边粗细在不同渲染器下会飘），换密度不用重出图；`mipmap-*` 只剩 legacy 的 `ic_launcher.png`。
 
