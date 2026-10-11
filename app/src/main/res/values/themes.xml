@@ -33,5 +33,25 @@
         <item name="colorSurfaceInverse">@color/cam_inverse_surface</item>
         <item name="colorOnSurfaceInverse">@color/cam_inverse_on_surface</item>
         <item name="colorPrimaryInverse">@color/cam_inverse_primary</item>
+
+        <!-- 弹窗壳统一走这里（MaterialAlertDialogBuilder 读的是 materialAlertDialogTheme，
+             不是 alertDialogTheme）。别再用 AlertDialog.Builder —— 它落回 AppCompat 的 M2 壳，
+             圆角 4dp、按钮贴底，跟白卡那套语汇对不上 -->
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.CamFtp.MaterialAlertDialog</item>
+    </style>
+
+    <!-- 弹窗外观：M3 默认 28dp 圆角 + colorSurfaceContainerHigh 底色，改成本 App 的卡片语汇
+         （20dp 圆角 + ?attr/colorSurface）。排版、按钮、边距仍由 M3 管，别在这里加字号 -->
+    <style name="ThemeOverlay.CamFtp.MaterialAlertDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="alertDialogStyle">@style/Widget.CamFtp.AlertDialog</item>
+    </style>
+
+    <style name="Widget.CamFtp.AlertDialog" parent="MaterialAlertDialog.Material3">
+        <item name="backgroundTint">?attr/colorSurface</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.CamFtp.Card</item>
+    </style>
+
+    <style name="ShapeAppearance.CamFtp.Card" parent="ShapeAppearance.Material3.Corner.Large">
+        <item name="cornerSize">20dp</item>
     </style>
 </resources>

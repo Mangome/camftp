@@ -24,7 +24,6 @@ import android.widget.LinearLayout
 import android.widget.Space
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -33,6 +32,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
 import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.lifecycleScope
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import io.github.mangome.camftp.databinding.ActivityMainBinding
 import io.github.mangome.camftp.databinding.ItemFailureBinding
@@ -503,9 +503,10 @@ class MainActivity : AppCompatActivity() {
         return bmp
     }
 
-    /** 关于：版权 / 版本 / 开源信息，源码走系统浏览器 */
+    /** 关于：版权 / 版本 / 开源信息，源码走系统浏览器。壳用 MaterialAlertDialogBuilder ——
+     *  主题里的 ThemeOverlay.CamFtp.MaterialAlertDialog 把圆角与底色对齐 cam_* 卡片 */
     private fun showAbout() {
-        AlertDialog.Builder(this)
+        MaterialAlertDialogBuilder(this)
             .setTitle(R.string.about)
             .setMessage(getString(R.string.about_body, BuildConfig.VERSION_NAME))
             .setPositiveButton(R.string.about_close, null)
